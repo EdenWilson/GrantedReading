@@ -82,7 +82,9 @@
     padding: 24px 0;
     flex-shrink: 0;
     overflow-y: auto;
+    display: none;
   }
+  .sidebar.open { display: block; }
 
   .sidebar-heading {
     display: flex; align-items: center; justify-content: space-between;
@@ -263,39 +265,7 @@
 
 <div class="layout">
 
-  <aside class="sidebar">
-    <div class="sidebar-section">
-      <div class="sidebar-heading">
-        Classes
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
-      </div>
-      <div class="sidebar-item active">1st Period English</div>
-      <div class="sidebar-item">2nd Period Math</div>
-      <div class="sidebar-item">3rd Period Science</div>
-      <div class="sidebar-item">Occupational Therapy</div>
-    </div>
-    <div class="sidebar-section">
-      <div class="sidebar-heading">
-        Recents
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
-      </div>
-      <div class="sidebar-item" style="font-weight:700;">Harriet Tubman</div>
-      <div class="sidebar-item">The Big Soccer Match</div>
-      <div class="sidebar-item">States of Matter</div>
-      <div class="sidebar-item">Emma's Big Day</div>
-      <div class="sidebar-item">Basketball Stars</div>
-      <div class="sidebar-item">All About Dinosaurs</div>
-    </div>
-    <div class="sidebar-section">
-      <div class="sidebar-heading">
-        Folders
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
-      </div>
-      <div class="sidebar-item">1st Period ELA</div>
-      <div class="sidebar-item">Science Reading Comp.</div>
-      <div class="sidebar-item">Wh- Questions #1</div>
-    </div>
-  </aside>
+  <aside class="sidebar" id="sidebar"></aside>
 
   <div class="main">
 
@@ -397,13 +367,14 @@
   </div>
 </div>
 
-<button class="sidebar-fab" aria-label="New worksheet">
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-</button>
 
 <script>
   let selectedGrade = "";
   let currentBlobUrl = null;
+
+  document.querySelector(".hamburger").addEventListener("click", () => {
+    document.getElementById("sidebar").classList.toggle("open");
+  });
 
   document.querySelectorAll(".grade-btn").forEach(btn => {
     btn.addEventListener("click", () => {

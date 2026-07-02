@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
+from dotenv import load_dotenv
 import requests
 import time
 import json
@@ -9,16 +10,18 @@ import os
 import base64
 from datetime import datetime
 
+load_dotenv()
+
 app = Flask(__name__)
 CORS(app)
 
 # ── PDF Generator API credentials ──────────────────────────────────────────────
 PDF_API_URL = "https://us1.pdfgeneratorapi.com/api/v4/documents/generate"
-API_KEY     = "c6b320bc350c737188e697a4e40693d9299274b816b3e734e7453450c2515103"
-SECRET_KEY  = "8fa6edeed49914dbfb38bd3d5d6c6e47d1bea577ba59775ae2495e67a3892e80"
+API_KEY     = os.environ["PDF_API_KEY"]
+SECRET_KEY  = os.environ["PDF_SECRET_KEY"]
 
 # ── OpenAI key ──────────────────────────────────────────────────────────────────
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 
 
 # ── Helpers (same logic as your original script) ───────────────────────────────
