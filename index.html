@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Granted Reading — Worksheet Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Nunito+Sans:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green:        #3aaa35;
+    --green-dark:   #2d8a29;
+    --green-light:  #eaf7e9;
+    --gold:         #f5a623;
+    --ink:          #1a1a1a;
+    --muted:        #6b7280;
+    --border:       #e5e7eb;
+    --bg:           #f3f4f6;
+    --white:        #ffffff;
+    --sidebar-w:    260px;
+    --header-h:     64px;
+    --radius:       10px;
+    --font:         'Nunito', sans-serif;
+    --font-body:    'Nunito Sans', sans-serif;
+  }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .topnav {
+    height: var(--header-h);
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+  }
+
+  .topnav-left { display: flex; align-items: center; gap: 20px; }
+
+  .hamburger {
+    background: none; border: none; cursor: pointer;
+    display: flex; flex-direction: column; gap: 5px; padding: 4px;
+  }
+  .hamburger span { display: block; width: 22px; height: 2px; background: var(--ink); border-radius: 2px; }
+
+  .logo-img { height: 50px; width: auto; display: block; }
+
+  .topnav-right { display: flex; align-items: center; gap: 12px; }
+  .user-name { font-family: var(--font); font-weight: 700; font-size: 14px; text-align: right; }
+  .user-role { font-size: 12px; color: var(--muted); text-align: right; }
+  .avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: var(--green-light); border: 2px solid var(--green);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font); font-weight: 800; font-size: 14px; color: var(--green);
+  }
+
+  .layout {
+    display: flex;
+    margin-top: var(--header-h);
+    min-height: calc(100vh - var(--header-h));
+  }
+
+  .sidebar {
+    width: var(--sidebar-w);
+    background: var(--white);
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+
+  .sidebar-heading {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 20px;
+    font-family: var(--font); font-weight: 800; font-size: 15px;
+    cursor: pointer; margin-bottom: 2px;
+  }
+
+  .sidebar-item {
+    padding: 7px 20px 7px 28px;
+    font-size: 14px; color: var(--ink);
+    cursor: pointer; transition: background 0.1s;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .sidebar-item:hover { background: var(--green-light); color: var(--green-dark); }
+  .sidebar-item.active { font-weight: 700; color: var(--green); }
+  .sidebar-section { margin-bottom: 12px; }
+
+  .sidebar-fab {
+    position: fixed; bottom: 28px; left: 20px;
+    width: 44px; height: 44px;
+    background: var(--gold); border: none; border-radius: 50%;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 12px rgba(245,166,35,0.4);
+    transition: transform 0.15s, box-shadow 0.15s; z-index: 50;
+  }
+  .sidebar-fab:hover { transform: scale(1.08); box-shadow: 0 6px 18px rgba(245,166,35,0.5); }
+
+  .main { flex: 1; display: grid; grid-template-columns: 1fr 1fr; }
+
+  .prompt-panel { padding: 36px 32px; border-right: 1px solid var(--border); }
+
+  .panel-title {
+    font-family: var(--font); font-size: 28px; font-weight: 800;
+    margin-bottom: 24px; color: var(--ink);
+  }
+
+  .form-card {
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px;
+  }
+
+  .field { margin-bottom: 20px; }
+
+  .field-label {
+    display: block; font-size: 13px; font-weight: 600;
+    color: var(--ink); margin-bottom: 7px;
+  }
+
+  .grade-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px; }
+
+  .grade-btn {
+    background: var(--bg); border: 1.5px solid var(--border);
+    border-radius: 8px; padding: 9px 4px;
+    font-family: var(--font); font-size: 13px; font-weight: 700;
+    color: var(--muted); cursor: pointer; transition: all 0.12s; text-align: center;
+  }
+  .grade-btn:hover { border-color: var(--green); color: var(--green); }
+  .grade-btn.selected { background: var(--green); border-color: var(--green); color: #fff; }
+
+  select, textarea {
+    width: 100%; font-family: var(--font-body);
+    font-size: 14px; color: var(--ink); background: var(--white);
+    border: 1.5px solid var(--border); border-radius: var(--radius);
+    padding: 10px 14px; outline: none; transition: border-color 0.15s;
+    appearance: none; -webkit-appearance: none;
+  }
+
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+    padding-right: 32px; cursor: pointer;
+  }
+
+  select:focus, textarea:focus { border-color: var(--green); }
+  textarea { min-height: 100px; resize: vertical; line-height: 1.5; }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 4px 0 20px; }
+
+  .generate-btn {
+    width: 100%; background: var(--gold); color: var(--white); border: none;
+    border-radius: var(--radius); padding: 14px;
+    font-family: var(--font); font-size: 16px; font-weight: 800;
+    cursor: pointer; transition: background 0.15s, transform 0.1s;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .generate-btn:hover:not(:disabled) { background: #e09415; }
+  .generate-btn:active:not(:disabled) { transform: scale(0.985); }
+  .generate-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  #status-area { display: none; margin-top: 18px; }
+  .progress-steps { display: flex; flex-direction: column; gap: 10px; }
+  .step { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); transition: color 0.2s; }
+  .step.active { color: var(--ink); }
+  .step.done   { color: var(--green); }
+  .step-dot {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 1.5px solid var(--border); background: var(--bg);
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: var(--muted); transition: all 0.2s;
+  }
+  .step.active .step-dot { border-color: var(--green); background: var(--green-light); color: var(--green); }
+  .step.done .step-dot   { border-color: var(--green); background: var(--green); color: white; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(58,170,53,0.2); border-top-color: var(--green);
+    border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0;
+  }
+
+  #error-box {
+    display: none; margin-top: 14px;
+    background: #fef2f2; border: 1px solid #fecaca;
+    border-radius: var(--radius); padding: 12px 14px;
+    font-size: 13px; color: #b91c1c;
+  }
+
+  .preview-panel { padding: 36px 32px; display: flex; flex-direction: column; }
+
+  .preview-empty {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: var(--muted); text-align: center; gap: 12px;
+  }
+  .preview-empty-icon {
+    width: 64px; height: 64px; background: var(--green-light);
+    border-radius: 16px; display: flex; align-items: center; justify-content: center;
+  }
+  .preview-empty p { font-size: 14px; max-width: 220px; line-height: 1.6; }
+
+  #pdf-section { display: none; flex-direction: column; flex: 1; }
+
+  .pdf-frame-wrap {
+    flex: 1; border: 1px solid var(--border); border-radius: 14px;
+    overflow: hidden; background: #fff;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.06); min-height: 500px;
+  }
+  #pdf-frame { width: 100%; height: 100%; min-height: 500px; border: none; display: block; }
+
+  .pdf-actions { display: flex; gap: 12px; margin-top: 16px; }
+
+  .btn-view {
+    flex: 1; background: var(--gold); color: white; border: none;
+    border-radius: var(--radius); padding: 12px;
+    font-family: var(--font); font-size: 14px; font-weight: 800;
+    cursor: pointer; transition: background 0.15s; text-decoration: none;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-view:hover { background: #e09415; }
+
+  .btn-retry {
+    flex: 1; background: var(--gold); color: white; border: none;
+    border-radius: var(--radius); padding: 12px;
+    font-family: var(--font); font-size: 14px; font-weight: 800;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .btn-retry:hover { background: #e09415; }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav-left">
+    <button class="hamburger" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+    <img src="logo.png" alt="Granted Reading" class="logo-img" />
+  </div>
+  <div class="topnav-right">
+    <div>
+      <div class="user-name">Eden Wilson</div>
+      <div class="user-role">Special Education Teacher</div>
+    </div>
+    <div class="avatar">EW</div>
+  </div>
+</nav>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-heading">
+        Classes
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="sidebar-item active">1st Period English</div>
+      <div class="sidebar-item">2nd Period Math</div>
+      <div class="sidebar-item">3rd Period Science</div>
+      <div class="sidebar-item">Occupational Therapy</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-heading">
+        Recents
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="sidebar-item" style="font-weight:700;">Harriet Tubman</div>
+      <div class="sidebar-item">The Big Soccer Match</div>
+      <div class="sidebar-item">States of Matter</div>
+      <div class="sidebar-item">Emma's Big Day</div>
+      <div class="sidebar-item">Basketball Stars</div>
+      <div class="sidebar-item">All About Dinosaurs</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-heading">
+        Folders
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="sidebar-item">1st Period ELA</div>
+      <div class="sidebar-item">Science Reading Comp.</div>
+      <div class="sidebar-item">Wh- Questions #1</div>
+    </div>
+  </aside>
+
+  <div class="main">
+
+    <div class="prompt-panel">
+      <div class="panel-title">Prompt</div>
+      <div class="form-card">
+
+        <div class="field">
+          <label class="field-label">Student's grade</label>
+          <div class="grade-grid" id="grade-grid">
+            <button class="grade-btn" data-grade="K">K</button>
+            <button class="grade-btn" data-grade="1">1st</button>
+            <button class="grade-btn" data-grade="2">2nd</button>
+            <button class="grade-btn" data-grade="3">3rd</button>
+            <button class="grade-btn" data-grade="4">4th</button>
+            <button class="grade-btn" data-grade="5">5th</button>
+            <button class="grade-btn" data-grade="6">6th</button>
+            <button class="grade-btn" data-grade="7">7th</button>
+            <button class="grade-btn" data-grade="8">8th</button>
+            <button class="grade-btn" data-grade="9">9th</button>
+            <button class="grade-btn" data-grade="10">10th</button>
+            <button class="grade-btn" data-grade="11">11th</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Reading level (grade equivalent)</label>
+          <select id="reading-level">
+            <option value="" disabled selected>Select a level…</option>
+            <option value="K">Kindergarten</option>
+            <option value="1">1st grade</option>
+            <option value="2">2nd grade</option>
+            <option value="3">3rd grade</option>
+            <option value="4">4th grade</option>
+            <option value="5">5th grade</option>
+            <option value="6">6th grade</option>
+            <option value="7">7th grade</option>
+            <option value="8">8th grade</option>
+            <option value="9">9th grade</option>
+            <option value="10">10th grade</option>
+            <option value="11">11th grade</option>
+            <option value="12">12th grade</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Student's interests</label>
+          <textarea id="interests" placeholder="e.g. loves dinosaurs, soccer, and cooking with her grandmother…"></textarea>
+        </div>
+
+        <hr class="divider" />
+
+        <div id="error-box"></div>
+
+        <div id="status-area">
+          <div class="progress-steps">
+            <div class="step" id="step-1"><div class="step-dot">1</div><span>Writing the story &amp; questions…</span></div>
+            <div class="step" id="step-2"><div class="step-dot">2</div><span>Creating the illustration…</span></div>
+            <div class="step" id="step-3"><div class="step-dot">3</div><span>Building the PDF…</span></div>
+          </div>
+        </div>
+
+        <button class="generate-btn" id="generate-btn" onclick="generateWorksheet()">
+          Generate
+        </button>
+
+      </div>
+    </div>
+
+    <div class="preview-panel">
+      <div class="panel-title">Preview</div>
+
+      <div class="preview-empty" id="preview-empty">
+        <div class="preview-empty-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3aaa35" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+        </div>
+        <p>Fill in the prompt and click <strong>Generate</strong> to preview your worksheet here.</p>
+      </div>
+
+      <div id="pdf-section">
+        <div class="pdf-frame-wrap">
+          <iframe id="pdf-frame" title="Worksheet preview"></iframe>
+        </div>
+        <div class="pdf-actions">
+          <a id="download-btn" class="btn-view" download="worksheet.pdf">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            View / Print
+          </a>
+          <button class="btn-retry" onclick="resetForm()">Retry</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<button class="sidebar-fab" aria-label="New worksheet">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+</button>
+
+<script>
+  let selectedGrade = "";
+  let currentBlobUrl = null;
+
+  document.querySelectorAll(".grade-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".grade-btn").forEach(b => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      selectedGrade = btn.dataset.grade;
+    });
+  });
+
+  function setStep(n) {
+    for (let i = 1; i <= 3; i++) {
+      const el  = document.getElementById(`step-${i}`);
+      const dot = el.querySelector(".step-dot");
+      el.classList.remove("active", "done");
+      dot.innerHTML = i;
+      if (i < n) {
+        el.classList.add("done");
+        dot.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>`;
+      } else if (i === n) {
+        el.classList.add("active");
+        dot.innerHTML = `<div style="width:12px;height:12px;border:2px solid rgba(58,170,53,0.2);border-top-color:var(--green);border-radius:50%;animation:spin 0.7s linear infinite;"></div>`;
+      }
+    }
+  }
+
+  async function generateWorksheet() {
+    const readingLevel = document.getElementById("reading-level").value;
+    const interests    = document.getElementById("interests").value.trim();
+    const errorBox     = document.getElementById("error-box");
+    errorBox.style.display = "none";
+
+    if (!selectedGrade) { showError("Please select the student's grade."); return; }
+    if (!readingLevel)  { showError("Please select a reading level."); return; }
+    if (!interests)     { showError("Please describe the student's interests."); return; }
+
+    const btn = document.getElementById("generate-btn");
+    btn.disabled = true;
+    btn.innerHTML = `<div class="spinner" style="border-color:rgba(255,255,255,0.3);border-top-color:#fff;"></div> Generating…`;
+
+    const statusArea = document.getElementById("status-area");
+    statusArea.style.display = "block";
+    setStep(1);
+
+    const t2 = setTimeout(() => setStep(2), 8000);
+    const t3 = setTimeout(() => setStep(3), 18000);
+
+    try {
+      const response = await fetch("http://localhost:5000/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ grade: selectedGrade, reading_level: readingLevel, interests })
+      });
+
+      clearTimeout(t2); clearTimeout(t3);
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Unknown server error");
+      }
+
+      const blob = await response.blob();
+      if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+      currentBlobUrl = URL.createObjectURL(blob);
+
+      document.getElementById("pdf-frame").src = currentBlobUrl;
+      document.getElementById("download-btn").href = currentBlobUrl;
+
+      document.getElementById("preview-empty").style.display = "none";
+      document.getElementById("pdf-section").style.display = "flex";
+      statusArea.style.display = "none";
+
+    } catch (err) {
+      clearTimeout(t2); clearTimeout(t3);
+      showError(err.message);
+      statusArea.style.display = "none";
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = "Generate";
+  }
+
+  function resetForm() {
+    document.getElementById("pdf-section").style.display = "none";
+    document.getElementById("preview-empty").style.display = "flex";
+    document.getElementById("status-area").style.display = "none";
+    document.getElementById("error-box").style.display = "none";
+    const btn = document.getElementById("generate-btn");
+    btn.disabled = false;
+    btn.innerHTML = "Generate";
+  }
+
+  function showError(msg) {
+    const el = document.getElementById("error-box");
+    el.textContent = msg;
+    el.style.display = "block";
+  }
+</script>
+</body>
+</html>
