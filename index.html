@@ -113,9 +113,9 @@
   }
   .sidebar-fab:hover { transform: scale(1.08); box-shadow: 0 6px 18px rgba(245,166,35,0.5); }
 
-  .main { flex: 1; display: grid; grid-template-columns: 1fr 1fr; }
+  .main { flex: 1; display: grid; grid-template-columns: 1fr 1fr 1fr; }
 
-  .prompt-panel { padding: 36px 32px; border-right: 1px solid var(--border); }
+  .prompt-panel, .review-panel { padding: 36px 32px; border-right: 1px solid var(--border); }
 
   .panel-title {
     font-family: var(--font); font-size: 28px; font-weight: 800;
@@ -202,6 +202,50 @@
     border-radius: var(--radius); padding: 12px 14px;
     font-size: 13px; color: #b91c1c;
   }
+
+  .review-panel { display: flex; flex-direction: column; }
+
+  .review-empty {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: var(--muted); text-align: center; gap: 12px;
+    border: 1px dashed var(--border); border-radius: 14px; padding: 24px;
+    background: var(--white);
+  }
+
+  .review-form {
+    display: none; flex-direction: column; gap: 14px; flex: 1;
+  }
+
+  .review-field {
+    display: flex; flex-direction: column; gap: 8px;
+  }
+
+  .review-field label {
+    font-size: 13px; font-weight: 700; color: var(--ink);
+  }
+
+  .review-field input,
+  .review-field textarea {
+    width: 100%;
+  }
+
+  .review-field textarea {
+    min-height: 140px;
+  }
+
+  .review-actions {
+    display: flex; gap: 12px; margin-top: auto;
+  }
+
+  .btn-create-pdf {
+    flex: 1; background: var(--green); color: white; border: none;
+    border-radius: var(--radius); padding: 12px;
+    font-family: var(--font); font-size: 14px; font-weight: 800;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .btn-create-pdf:hover:not(:disabled) { background: var(--green-dark); }
+  .btn-create-pdf:disabled { opacity: 0.6; cursor: not-allowed; }
 
   .preview-panel { padding: 36px 32px; display: flex; flex-direction: column; }
 
@@ -335,6 +379,48 @@
       </div>
     </div>
 
+    <div class="review-panel">
+      <div class="panel-title">Review &amp; Edit</div>
+
+      <div class="review-empty" id="review-empty">
+        <p>Generated worksheet content will appear here so you can review and edit it before creating the PDF.</p>
+      </div>
+
+      <div class="review-form" id="review-form">
+        <div class="review-field">
+          <label for="review-title">Title</label>
+          <input id="review-title" type="text" />
+        </div>
+        <div class="review-field">
+          <label for="review-story">Story</label>
+          <textarea id="review-story"></textarea>
+        </div>
+        <div class="review-field">
+          <label for="review-who">Who</label>
+          <input id="review-who" type="text" />
+        </div>
+        <div class="review-field">
+          <label for="review-what">What</label>
+          <input id="review-what" type="text" />
+        </div>
+        <div class="review-field">
+          <label for="review-when">When</label>
+          <input id="review-when" type="text" />
+        </div>
+        <div class="review-field">
+          <label for="review-where">Where</label>
+          <input id="review-where" type="text" />
+        </div>
+        <div class="review-field">
+          <label for="review-why">Why</label>
+          <input id="review-why" type="text" />
+        </div>
+        <div class="review-actions">
+          <button class="btn-create-pdf" id="create-pdf-btn" onclick="createPdfFromReview()">Create PDF</button>
+        </div>
+      </div>
+    </div>
+
     <div class="preview-panel">
       <div class="panel-title">Preview</div>
 
@@ -371,6 +457,7 @@
 <script>
   let selectedGrade = "";
   let currentBlobUrl = null;
+  let reviewContent = null;
 
   document.querySelector(".hamburger").addEventListener("click", () => {
     document.getElementById("sidebar").classList.toggle("open");
@@ -435,15 +522,25 @@
         throw new Error(err.error || "Unknown server error");
       }
 
-      const blob = await response.blob();
-      if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
-      currentBlobUrl = URL.createObjectURL(blob);
+      const data = await response.json();
+      reviewContent = {
+        title: data.content?.title || "",
+        story: data.content?.story || "",
+        questions: {
+          who: data.content?.questions?.who || "",
+          what: data.content?.questions?.what || "",
+          when: data.content?.questions?.when || "",
+          where: data.content?.questions?.where || "",
+          why: data.content?.questions?.why || ""
+        }
+      };
 
-      document.getElementById("pdf-frame").src = currentBlobUrl;
-      document.getElementById("download-btn").href = currentBlobUrl;
+      populateReviewPanel(reviewContent);
 
       document.getElementById("preview-empty").style.display = "none";
-      document.getElementById("pdf-section").style.display = "flex";
+      document.getElementById("pdf-section").style.display = "none";
+      document.getElementById("review-empty").style.display = "none";
+      document.getElementById("review-form").style.display = "flex";
       statusArea.style.display = "none";
 
     } catch (err) {
@@ -456,9 +553,67 @@
     btn.innerHTML = "Generate";
   }
 
+  function populateReviewPanel(content) {
+    document.getElementById("review-title").value = content.title;
+    document.getElementById("review-story").value = content.story;
+    document.getElementById("review-who").value = content.questions.who;
+    document.getElementById("review-what").value = content.questions.what;
+    document.getElementById("review-when").value = content.questions.when;
+    document.getElementById("review-where").value = content.questions.where;
+    document.getElementById("review-why").value = content.questions.why;
+  }
+
+  async function createPdfFromReview() {
+    const btn = document.getElementById("create-pdf-btn");
+    btn.disabled = true;
+    btn.textContent = "Creating PDF…";
+
+    const payload = {
+      title: document.getElementById("review-title").value.trim(),
+      story: document.getElementById("review-story").value.trim(),
+      questions: {
+        who: document.getElementById("review-who").value.trim(),
+        what: document.getElementById("review-what").value.trim(),
+        when: document.getElementById("review-when").value.trim(),
+        where: document.getElementById("review-where").value.trim(),
+        why: document.getElementById("review-why").value.trim()
+      }
+    };
+
+    try {
+      const response = await fetch("http://localhost:5000/create-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Unknown server error");
+      }
+
+      const blob = await response.blob();
+      if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+      currentBlobUrl = URL.createObjectURL(blob);
+
+      document.getElementById("pdf-frame").src = currentBlobUrl;
+      document.getElementById("download-btn").href = currentBlobUrl;
+
+      document.getElementById("preview-empty").style.display = "none";
+      document.getElementById("pdf-section").style.display = "flex";
+    } catch (err) {
+      showError(err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Create PDF";
+    }
+  }
+
   function resetForm() {
     document.getElementById("pdf-section").style.display = "none";
     document.getElementById("preview-empty").style.display = "flex";
+    document.getElementById("review-empty").style.display = "flex";
+    document.getElementById("review-form").style.display = "none";
     document.getElementById("status-area").style.display = "none";
     document.getElementById("error-box").style.display = "none";
     const btn = document.getElementById("generate-btn");

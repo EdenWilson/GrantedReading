@@ -1,0 +1,9 @@
+
+---
+Prompt:
+I have a student who is in 6th grade and reads at a 1st grade level. my student is interested in watercolor paintings
+
+AI Output:
+NO OUTPUT
+
+Error: 'message'
