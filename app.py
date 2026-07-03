@@ -8,11 +8,28 @@ import jwt
 import os
 import base64
 from datetime import datetime
+from azure.identity import DefaultAzureCredential
+from azure.core.credentials import AzureKeyCredential, TokenCredential
+import os
+from azure.ai.projects import AIProjectClient
 
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
+
+# ── SIMPLE KEY-BASED TOKEN CREDENTIAL ───────────────────────────────────────
+class KeyBasedTokenCredential(TokenCredential):
+    """Wraps an API key as a TokenCredential for Azure SDK compatibility."""
+    def __init__(self, key: str):
+        self.key = key
+
+    def get_token(self, *scopes, **kwargs):
+        from azure.core.credentials import AccessToken
+        import time
+        # Return the key as a bearer token (never expires for simplicity)
+        return AccessToken(self.key, int(time.time()) + 3600)
+
 
 # ── CONFIG ─────────────────────────────────────────────────────────────
 PDF_API_URL = "https://us1.pdfgeneratorapi.com/api/v4/documents/generate"
@@ -20,9 +37,9 @@ PDF_TEMPLATE_ID = os.getenv("PDF_TEMPLATE_ID", "1120770")
 API_KEY = os.getenv("PDF_API_KEY", "")
 SECRET_KEY = os.getenv("PDF_SECRET_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://localhost:11434/api/chat")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "myWorksheetMaker:v4")
-OLLAMA_TIMEOUT_SECONDS = int(os.getenv("OLLAMA_TIMEOUT_SECONDS", "30"))
+AZURE_PROJECT_ENDPOINT = os.getenv("AZURE_PROJECT_ENDPOINT", "")
+AZURE_AGENT_NAME = os.getenv("AZURE_AGENT_NAME", "text-generator")
+AZURE_AGENT_VERSION = os.getenv("AZURE_AGENT_VERSION", "1")
 
 
 def ensure_configured():
@@ -33,6 +50,12 @@ def ensure_configured():
         missing.append("PDF_SECRET_KEY")
     if not OPENAI_API_KEY:
         missing.append("OPENAI_API_KEY")
+    if not AZURE_PROJECT_ENDPOINT:
+        missing.append("AZURE_PROJECT_ENDPOINT")
+    if not AZURE_AGENT_NAME:
+        missing.append("AZURE_AGENT_NAME")
+    if not AZURE_AGENT_VERSION:
+        missing.append("AZURE_AGENT_VERSION")
     if missing:
         raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
 
@@ -86,31 +109,86 @@ def create_image_prompt(title, story):
     return f"A children's educational illustration titled '{title}'. Scene: {story[:200]}"
 
 
-# ── OLLAMA TEXT GENERATION ─────────────────────────────────────────────
+# ── AZURE PROJECTS AGENT TEXT GENERATION ─────────────────────────────────────────────────────────────
 def generate_text(prompt):
-    payload = {
-        "model": OLLAMA_MODEL,
-        "messages": [{"role": "user", "content": prompt}],
-        "stream": False
-    }
+    ensure_configured()
 
-    try:
-        r = requests.post(OLLAMA_API_URL, json=payload, timeout=OLLAMA_TIMEOUT_SECONDS)
-        r.raise_for_status()
-        data = r.json()
-        return data["message"]["content"]
-    except requests.exceptions.Timeout as exc:
-        raise RuntimeError(
-            f"Ollama timed out after {OLLAMA_TIMEOUT_SECONDS} seconds. Make sure Ollama is running and the model '{OLLAMA_MODEL}' is available."
-        ) from exc
-    except requests.exceptions.ConnectionError as exc:
-        raise RuntimeError(
-            f"Could not reach Ollama at {OLLAMA_API_URL}. Start it with 'ollama serve' and confirm the model exists."
-        ) from exc
-    except requests.exceptions.RequestException as exc:
-        raise RuntimeError(f"Ollama request failed: {exc}") from exc
-    except (KeyError, ValueError, TypeError) as exc:
-        raise RuntimeError("Ollama returned an unexpected response format.") from exc
+    # Prefer resource key if available, fall back to DefaultAzureCredential
+    credential = None
+    used_cred = None
+    
+    key = os.getenv("AZURE_OPENAI_API_KEY") or os.getenv("AZURE_PROJECT_KEY")
+    if key:
+        credential = KeyBasedTokenCredential(key)
+        used_cred = "KeyBasedTokenCredential"
+        print(f"Using Azure credential: {used_cred}")
+    else:
+        try:
+            cred = DefaultAzureCredential()
+            # verify token retrieval to detect interactive/missing auth early
+            cred.get_token("https://management.azure.com/.default")
+            credential = cred
+            used_cred = "DefaultAzureCredential"
+            print(f"Using Azure credential: {used_cred}")
+        except Exception as e:
+            raise RuntimeError(
+                "No AZURE_OPENAI_API_KEY configured and DefaultAzureCredential failed.") from e
+
+    project_client = AIProjectClient(endpoint=AZURE_PROJECT_ENDPOINT, credential=credential)
+    openai_client = project_client.get_openai_client()
+
+    response = openai_client.responses.create(
+        input=[{"role": "user", "content": prompt}],
+        extra_body={
+            "agent_reference": {
+                "name": AZURE_AGENT_NAME,
+                "version": AZURE_AGENT_VERSION,
+                "type": "agent_reference"
+            }
+        }
+    )
+
+    if hasattr(response, "output_text") and response.output_text is not None:
+        return response.output_text
+
+    output_items = getattr(response, "output", None)
+    if not output_items:
+        raise RuntimeError(f"Azure agent returned no output: {response}")
+
+    def extract_text(item):
+        if item is None:
+            return ""
+        if isinstance(item, str):
+            return item
+        if isinstance(item, dict):
+            text = item.get("text")
+            if text is not None:
+                return text
+            content = item.get("content")
+        else:
+            text = getattr(item, "text", None)
+            if text is not None:
+                return text
+            content = getattr(item, "content", None)
+
+        if content is None:
+            return str(item)
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            flattened = []
+            for part in content:
+                if isinstance(part, dict):
+                    flattened.append(part.get("text", ""))
+                else:
+                    flattened.append(str(part))
+            return "".join(flattened)
+        return str(content)
+
+    extracted = "".join(extract_text(item) for item in output_items)
+    if not extracted.strip():
+        raise RuntimeError(f"Azure agent returned empty text output: {response}")
+    return extracted
 
 
 # ── VALIDATION ─────────────────────────────────────────────────────────
@@ -129,7 +207,7 @@ def validate_structure(data):
     return True
 
 
-# ── NORMALIZATION ──────────────────────────────────────────────────────
+# ── NORMALIZATION ─────────────────────────────────────────────────────────────────
 def normalize_model_output(data):
     return {
         "Title": data["title"],

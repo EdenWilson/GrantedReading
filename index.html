@@ -527,11 +527,11 @@
         title: data.content?.title || "",
         story: data.content?.story || "",
         questions: {
-          who: data.content?.questions?.who || "",
-          what: data.content?.questions?.what || "",
-          when: data.content?.questions?.when || "",
-          where: data.content?.questions?.where || "",
-          why: data.content?.questions?.why || ""
+          q1: data.content?.questions?.q1 || "",
+          q2: data.content?.questions?.q2 || "",
+          q3: data.content?.questions?.q3 || "",
+          q4: data.content?.questions?.q4 || "",
+          q5: data.content?.questions?.q5 || ""
         }
       };
 
@@ -556,11 +556,11 @@
   function populateReviewPanel(content) {
     document.getElementById("review-title").value = content.title;
     document.getElementById("review-story").value = content.story;
-    document.getElementById("review-who").value = content.questions.who;
-    document.getElementById("review-what").value = content.questions.what;
-    document.getElementById("review-when").value = content.questions.when;
-    document.getElementById("review-where").value = content.questions.where;
-    document.getElementById("review-why").value = content.questions.why;
+    document.getElementById("review-who").value = content.questions.q1;
+    document.getElementById("review-what").value = content.questions.q2;
+    document.getElementById("review-when").value = content.questions.q3;
+    document.getElementById("review-where").value = content.questions.q4;
+    document.getElementById("review-why").value = content.questions.q5;
   }
 
   async function createPdfFromReview() {
@@ -572,11 +572,11 @@
       title: document.getElementById("review-title").value.trim(),
       story: document.getElementById("review-story").value.trim(),
       questions: {
-        who: document.getElementById("review-who").value.trim(),
-        what: document.getElementById("review-what").value.trim(),
-        when: document.getElementById("review-when").value.trim(),
-        where: document.getElementById("review-where").value.trim(),
-        why: document.getElementById("review-why").value.trim()
+        q1: document.getElementById("review-who").value.trim(),
+        q2: document.getElementById("review-what").value.trim(),
+        q3: document.getElementById("review-when").value.trim(),
+        q4: document.getElementById("review-where").value.trim(),
+        q5: document.getElementById("review-why").value.trim()
       }
     };
 
