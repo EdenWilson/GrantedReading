@@ -1,254 +1,35 @@
-from flask import Flask, request, jsonify, send_file
-from flask_cors import CORS
-from dotenv import load_dotenv
-import requests
+import os
+import re
 import time
-import json
-import jwt
-import os
-import base64
-from datetime import datetime
-from azure.identity import DefaultAzureCredential
-from azure.core.credentials import AzureKeyCredential, TokenCredential
-import os
-from azure.ai.projects import AIProjectClient
+
+from dotenv import load_dotenv
+from flask import Flask, jsonify, render_template, request, send_file
+
+import ai
+import file
 
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
 
-# ── SIMPLE KEY-BASED TOKEN CREDENTIAL ───────────────────────────────────────
-class KeyBasedTokenCredential(TokenCredential):
-    """Wraps an API key as a TokenCredential for Azure SDK compatibility."""
-    def __init__(self, key: str):
-        self.key = key
-
-    def get_token(self, *scopes, **kwargs):
-        from azure.core.credentials import AccessToken
-        import time
-        # Return the key as a bearer token (never expires for simplicity)
-        return AccessToken(self.key, int(time.time()) + 3600)
+OUTPUT_DIR =  "worksheets"
 
 
-# ── CONFIG ─────────────────────────────────────────────────────────────
-PDF_API_URL = "https://us1.pdfgeneratorapi.com/api/v4/documents/generate"
-PDF_TEMPLATE_ID = os.getenv("PDF_TEMPLATE_ID", "1120770")
-API_KEY = os.getenv("PDF_API_KEY", "")
-SECRET_KEY = os.getenv("PDF_SECRET_KEY", "")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-AZURE_PROJECT_ENDPOINT = os.getenv("AZURE_PROJECT_ENDPOINT", "")
-AZURE_AGENT_NAME = os.getenv("AZURE_AGENT_NAME", "text-generator")
-AZURE_AGENT_VERSION = os.getenv("AZURE_AGENT_VERSION", "1")
+def save_worksheet_pdf(pdf_bytes, title):
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    safe_title = re.sub(r"[^\w\s-]", "", title).strip().replace(" ", "_") or "worksheet"
+    filename = f"{safe_title}_{int(time.time())}.pdf"
+    path = os.path.join(OUTPUT_DIR, filename)
+    with open(path, "wb") as f:
+        f.write(pdf_bytes)
+    return path
 
 
-def ensure_configured():
-    missing = []
-    if not API_KEY:
-        missing.append("PDF_API_KEY")
-    if not SECRET_KEY:
-        missing.append("PDF_SECRET_KEY")
-    if not OPENAI_API_KEY:
-        missing.append("OPENAI_API_KEY")
-    if not AZURE_PROJECT_ENDPOINT:
-        missing.append("AZURE_PROJECT_ENDPOINT")
-    if not AZURE_AGENT_NAME:
-        missing.append("AZURE_AGENT_NAME")
-    if not AZURE_AGENT_VERSION:
-        missing.append("AZURE_AGENT_VERSION")
-    if missing:
-        raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
-
-# ── JWT ────────────────────────────────────────────────────────────────
-def generate_jwt():
-    ensure_configured()
-    payload = {
-        "iss": API_KEY,
-        "sub": API_KEY,
-        "exp": int(time.time()) + 60
-    }
-    return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+@app.route("/")
+def index():
+    return render_template("index.html")
 
 
-# ── IMAGE GENERATION ───────────────────────────────────────────────────
-def generate_image(image_prompt):
-    ensure_configured()
-    url = "https://api.openai.com/v1/images/generations"
-
-    headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
-        "Content-Type": "application/json"
-    }
-
-    payload = {
-        "model": "gpt-image-1",
-        "prompt": image_prompt,
-        "size": "1024x1024"
-    }
-
-    response = requests.post(url, headers=headers, json=payload, timeout=60)
-    data = response.json()
-
-    if "data" not in data:
-        raise ValueError(f"Image generation failed: {data}")
-
-    img = data["data"][0]
-
-    # handle both formats safely
-    if "b64_json" in img:
-        return img["b64_json"]
-
-    if "url" in img:
-        img_bytes = requests.get(img["url"], timeout=60).content
-        return base64.b64encode(img_bytes).decode()
-
-    raise ValueError("No valid image returned")
-
-
-def create_image_prompt(title, story):
-    return f"A children's educational illustration titled '{title}'. Scene: {story[:200]}"
-
-
-# ── AZURE PROJECTS AGENT TEXT GENERATION ─────────────────────────────────────────────────────────────
-def generate_text(prompt):
-    ensure_configured()
-
-    # Prefer resource key if available, fall back to DefaultAzureCredential
-    credential = None
-    used_cred = None
-    
-    key = os.getenv("AZURE_OPENAI_API_KEY") or os.getenv("AZURE_PROJECT_KEY")
-    if key:
-        credential = KeyBasedTokenCredential(key)
-        used_cred = "KeyBasedTokenCredential"
-        print(f"Using Azure credential: {used_cred}")
-    else:
-        try:
-            cred = DefaultAzureCredential()
-            # verify token retrieval to detect interactive/missing auth early
-            cred.get_token("https://management.azure.com/.default")
-            credential = cred
-            used_cred = "DefaultAzureCredential"
-            print(f"Using Azure credential: {used_cred}")
-        except Exception as e:
-            raise RuntimeError(
-                "No AZURE_OPENAI_API_KEY configured and DefaultAzureCredential failed.") from e
-
-    project_client = AIProjectClient(endpoint=AZURE_PROJECT_ENDPOINT, credential=credential)
-    openai_client = project_client.get_openai_client()
-
-    response = openai_client.responses.create(
-        input=[{"role": "user", "content": prompt}],
-        extra_body={
-            "agent_reference": {
-                "name": AZURE_AGENT_NAME,
-                "version": AZURE_AGENT_VERSION,
-                "type": "agent_reference"
-            }
-        }
-    )
-
-    if hasattr(response, "output_text") and response.output_text is not None:
-        return response.output_text
-
-    output_items = getattr(response, "output", None)
-    if not output_items:
-        raise RuntimeError(f"Azure agent returned no output: {response}")
-
-    def extract_text(item):
-        if item is None:
-            return ""
-        if isinstance(item, str):
-            return item
-        if isinstance(item, dict):
-            text = item.get("text")
-            if text is not None:
-                return text
-            content = item.get("content")
-        else:
-            text = getattr(item, "text", None)
-            if text is not None:
-                return text
-            content = getattr(item, "content", None)
-
-        if content is None:
-            return str(item)
-        if isinstance(content, str):
-            return content
-        if isinstance(content, list):
-            flattened = []
-            for part in content:
-                if isinstance(part, dict):
-                    flattened.append(part.get("text", ""))
-                else:
-                    flattened.append(str(part))
-            return "".join(flattened)
-        return str(content)
-
-    extracted = "".join(extract_text(item) for item in output_items)
-    if not extracted.strip():
-        raise RuntimeError(f"Azure agent returned empty text output: {response}")
-    return extracted
-
-
-# ── VALIDATION ─────────────────────────────────────────────────────────
-def validate_structure(data):
-    required = ["title", "story", "questions"]
-
-    for r in required:
-        if r not in data:
-            raise ValueError(f"Missing field: {r}")
-
-    q = data["questions"]
-    for key in ["q1", "q2", "q3", "q4", "q5"]:
-        if key not in q:
-            raise ValueError(f"Missing question: {key}")
-
-    return True
-
-
-# ── NORMALIZATION ─────────────────────────────────────────────────────────────────
-def normalize_model_output(data):
-    return {
-        "Title": data["title"],
-        "Story": data["story"],
-        "Who": data["questions"]["q1"],
-        "What": data["questions"]["q2"],
-        "When": data["questions"]["q3"],
-        "Where": data["questions"]["q4"],
-        "Why": data["questions"]["q5"]
-    }
-
-
-# ── PDF API ────────────────────────────────────────────────────────────
-def send_to_pdf_api(parsed_json):
-    jwt_token = generate_jwt()
-
-    payload = {
-        "template": {
-            "id": PDF_TEMPLATE_ID,
-            "data": [parsed_json]
-        },
-        "format": "pdf",
-        "output": "url"
-    }
-
-    headers = {
-        "Authorization": f"Bearer {jwt_token}",
-        "Content-Type": "application/json"
-    }
-
-    response = requests.post(PDF_API_URL, headers=headers, json=payload, timeout=60)
-    json_response = response.json()
-
-    pdf_url = json_response.get("response")
-    if not pdf_url:
-        raise ValueError(f"No PDF URL returned: {json_response}")
-
-    return requests.get(pdf_url, timeout=60).content
-
-
-# ── ROUTE ──────────────────────────────────────────────────────────────
 @app.route("/generate", methods=["POST"])
 def generate():
     body = request.get_json() or {}
@@ -257,24 +38,13 @@ def generate():
     reading_level = body.get("reading_level", "")
     interests = body.get("interests", "")
 
-    prompt = (
-        f"I have a student who is in {grade} grade and reads at a "
-        f"{reading_level} grade level. {interests}"
-    )
-
     try:
-        raw_text = generate_text(prompt)
-        model_data = json.loads(raw_text)
-        validate_structure(model_data)
-
-        return jsonify({
-            "content": model_data
-        })
-
+        model_data, raw_text = ai.generate_worksheet_content(grade, reading_level, interests)
+        return jsonify({"content": model_data})
     except Exception as e:
         return jsonify({
             "error": str(e),
-            "raw_model_output": raw_text if "raw_text" in locals() else None
+            "raw_model_output": raw_text if "raw_text" in locals() else None,
         }), 500
 
 
@@ -283,29 +53,22 @@ def create_pdf():
     body = request.get_json() or {}
 
     try:
-        validate_structure(body)
-        pdf_json = normalize_model_output(body)
-
-        image_prompt = create_image_prompt(pdf_json["Title"], pdf_json["Story"])
-        image_base64 = generate_image(image_prompt)
-        pdf_json["image"] = f"data:image/png;base64,{image_base64}"
-
-        pdf_bytes = send_to_pdf_api(pdf_json)
-
-        tmp_path = f"worksheet_{int(time.time())}.pdf"
-        with open(tmp_path, "wb") as f:
-            f.write(pdf_bytes)
+        ai.validate_structure(body)
+        pdf_data = ai.build_pdf_data(body)
+        pdf_bytes = file.generate_worksheet_pdf(pdf_data)
+        pdf_path = save_worksheet_pdf(pdf_bytes, pdf_data["Title"])
 
         return send_file(
-            tmp_path,
+            pdf_path,
             mimetype="application/pdf",
-            as_attachment=True,
-            download_name=f"{pdf_json['Title']}.pdf"
+            as_attachment=False,
+            download_name=f"{pdf_data['Title']}.pdf",
         )
-
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    port = int(os.getenv("PORT", "5000"))
+    debug = os.getenv("FLASK_DEBUG", "true").lower() == "true"
+    app.run(host="0.0.0.0", debug=debug, port=port)

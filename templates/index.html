@@ -21,7 +21,7 @@
     --bg:           #f3f4f6;
     --white:        #ffffff;
     --sidebar-w:    260px;
-    --header-h:     64px;
+    --header-h:     72px;
     --radius:       10px;
     --font:         'Nunito', sans-serif;
     --font-body:    'Nunito Sans', sans-serif;
@@ -57,7 +57,7 @@
   }
   .hamburger span { display: block; width: 22px; height: 2px; background: var(--ink); border-radius: 2px; }
 
-  .logo-img { height: 50px; width: auto; display: block; }
+  .logo-img { height: 64px; width: auto; display: block; }
 
   .topnav-right { display: flex; align-items: center; gap: 12px; }
   .user-name { font-family: var(--font); font-weight: 700; font-size: 14px; text-align: right; }
@@ -296,7 +296,7 @@
     <button class="hamburger" aria-label="Menu">
       <span></span><span></span><span></span>
     </button>
-    <img src="logo.png" alt="Granted Reading" class="logo-img" />
+    <img src="/static/logo.png" alt="Granted Reading" class="logo-img" />
   </div>
   <div class="topnav-right">
     <div>
@@ -509,7 +509,7 @@
     const t3 = setTimeout(() => setStep(3), 18000);
 
     try {
-      const response = await fetch("http://localhost:5000/generate", {
+      const response = await fetch("/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ grade: selectedGrade, reading_level: readingLevel, interests })
@@ -581,7 +581,7 @@
     };
 
     try {
-      const response = await fetch("http://localhost:5000/create-pdf", {
+      const response = await fetch("/create-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -596,8 +596,12 @@
       if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
       currentBlobUrl = URL.createObjectURL(blob);
 
+      const title = document.getElementById("review-title").value.trim() || "worksheet";
+      const safeName = title.replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "_") || "worksheet";
+
       document.getElementById("pdf-frame").src = currentBlobUrl;
       document.getElementById("download-btn").href = currentBlobUrl;
+      document.getElementById("download-btn").download = `${safeName}.pdf`;
 
       document.getElementById("preview-empty").style.display = "none";
       document.getElementById("pdf-section").style.display = "flex";
