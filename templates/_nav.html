@@ -1,0 +1,21 @@
+<nav class="topnav">
+  <div class="topnav-left">
+    <button class="hamburger" aria-label="Menu" type="button">
+      <span></span><span></span><span></span>
+    </button>
+    <a href="/" class="logo-link">
+      <img src="/static/logo.png" alt="Granted Reading" class="logo-img" />
+    </a>
+    <div class="app-nav">
+      <a href="/" class="app-nav-link{% if active_page == 'worksheet' %} active{% endif %}">Worksheet Generator</a>
+      <a href="/reading-level-corrector" class="app-nav-link{% if active_page == 'reading_level' %} active{% endif %}">How Reading Level Works</a>
+    </div>
+  </div>
+  <div class="topnav-right">
+    <div>
+      <div class="user-name">Eden Wilson</div>
+      <div class="user-role">Special Education Teacher</div>
+    </div>
+    <div class="avatar">EW</div>
+  </div>
+</nav>

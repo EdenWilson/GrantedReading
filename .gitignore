@@ -1,4 +1,7 @@
 .env
 worksheets/
 .venv/
+venv/
 __pycache__/
+.pytest_cache/
+.DS_Store

@@ -1,0 +1,7 @@
+-r requirements.txt
+
+pytest==9.1.1
+
+# Build-time only, for scripts/build_frequency_table.py --source wordfreq.
+# Not imported at runtime.
+wordfreq==3.1.1

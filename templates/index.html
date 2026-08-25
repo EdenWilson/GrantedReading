@@ -57,7 +57,24 @@
   }
   .hamburger span { display: block; width: 22px; height: 2px; background: var(--ink); border-radius: 2px; }
 
+  .logo-link { display: flex; align-items: center; text-decoration: none; }
   .logo-img { height: 64px; width: auto; display: block; }
+
+  .app-nav { display: flex; align-items: center; gap: 4px; }
+
+  .app-nav-link {
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    transition: background 0.12s, color 0.12s;
+    white-space: nowrap;
+  }
+  .app-nav-link:hover { color: var(--green-dark); background: var(--green-light); }
+  .app-nav-link.active { color: var(--green); background: var(--green-light); }
 
   .topnav-right { display: flex; align-items: center; gap: 12px; }
   .user-name { font-family: var(--font); font-weight: 700; font-size: 14px; text-align: right; }
@@ -115,7 +132,8 @@
 
   .main { flex: 1; display: grid; grid-template-columns: 1fr 1fr 1fr; }
 
-  .prompt-panel, .review-panel { padding: 36px 32px; border-right: 1px solid var(--border); }
+  .prompt-panel, .preview-panel { padding: 36px 32px; border-right: 1px solid var(--border); }
+  .review-panel { padding: 36px 32px; }
 
   .panel-title {
     font-family: var(--font); font-size: 28px; font-weight: 800;
@@ -205,13 +223,87 @@
 
   .review-panel { display: flex; flex-direction: column; }
 
-  .review-empty {
+  .review-empty,
+  .review-ready {
     flex: 1; display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     color: var(--muted); text-align: center; gap: 12px;
     border: 1px dashed var(--border); border-radius: 14px; padding: 24px;
     background: var(--white);
   }
+
+  .review-ready { display: none; }
+
+  .level-compare {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .level-compare-title {
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 800;
+  }
+  .level-note {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  .level-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .level-chip {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 6px 12px;
+  }
+  .level-chip strong { color: var(--ink); }
+  .level-chip.highlight { background: var(--green-light); border-color: #c8ebc6; color: var(--green-dark); }
+  .level-chip.highlight strong { color: var(--green-dark); }
+  .level-draft label {
+    display: block;
+    font-size: 12px;
+    font-weight: 800;
+    margin-bottom: 6px;
+  }
+  .level-draft-text {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 13px;
+    line-height: 1.55;
+    max-height: 180px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+  }
+
+  .review-ready p {
+    font-size: 14px;
+    line-height: 1.6;
+    max-width: 240px;
+  }
+
+  .btn-edit-worksheet {
+    background: var(--green);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    padding: 12px 20px;
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-edit-worksheet:hover { background: var(--green-dark); }
 
   .review-form {
     display: none; flex-direction: column; gap: 14px; flex: 1;
@@ -246,6 +338,51 @@
   }
   .btn-create-pdf:hover:not(:disabled) { background: var(--green-dark); }
   .btn-create-pdf:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .btn-secondary {
+    flex: 1; background: var(--white); color: var(--green-dark); border: 1.5px solid var(--green);
+    border-radius: var(--radius); padding: 12px;
+    font-family: var(--font); font-size: 14px; font-weight: 800;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .btn-secondary:hover:not(:disabled) { background: var(--green-light); }
+  .btn-secondary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .review-intro {
+    display: none;
+    background: var(--green-light);
+    border: 1px solid #c8ebc6;
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--green-dark);
+    margin-bottom: 14px;
+  }
+
+  .image-feedback-section {
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .image-feedback-section label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .image-feedback-section textarea {
+    min-height: 80px;
+  }
+
+  .image-feedback-section p {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
 
   .preview-panel { padding: 36px 32px; display: flex; flex-direction: column; }
 
@@ -291,21 +428,8 @@
 </head>
 <body>
 
-<nav class="topnav">
-  <div class="topnav-left">
-    <button class="hamburger" aria-label="Menu">
-      <span></span><span></span><span></span>
-    </button>
-    <img src="/static/logo.png" alt="Granted Reading" class="logo-img" />
-  </div>
-  <div class="topnav-right">
-    <div>
-      <div class="user-name">Eden Wilson</div>
-      <div class="user-role">Special Education Teacher</div>
-    </div>
-    <div class="avatar">EW</div>
-  </div>
-</nav>
+{% set active_page = 'worksheet' %}
+{% include '_nav.html' %}
 
 <div class="layout">
 
@@ -367,8 +491,9 @@
         <div id="status-area">
           <div class="progress-steps">
             <div class="step" id="step-1"><div class="step-dot">1</div><span>Writing the story &amp; questions…</span></div>
-            <div class="step" id="step-2"><div class="step-dot">2</div><span>Creating the illustration…</span></div>
-            <div class="step" id="step-3"><div class="step-dot">3</div><span>Building the PDF…</span></div>
+            <div class="step" id="step-2"><div class="step-dot">2</div><span>Checking reading level…</span></div>
+            <div class="step" id="step-3"><div class="step-dot">3</div><span>Creating the illustration…</span></div>
+            <div class="step" id="step-4"><div class="step-dot">4</div><span>Building the PDF…</span></div>
           </div>
         </div>
 
@@ -379,14 +504,61 @@
       </div>
     </div>
 
+    <div class="preview-panel">
+      <div class="panel-title">Preview</div>
+
+      <div class="preview-empty" id="preview-empty">
+        <div class="preview-empty-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3aaa35" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+        </div>
+        <p>Fill in the prompt and click <strong>Generate</strong> to create and preview your worksheet PDF here.</p>
+      </div>
+
+      <div id="pdf-section">
+        <div class="pdf-frame-wrap">
+          <iframe id="pdf-frame" title="Worksheet preview"></iframe>
+        </div>
+        <div class="pdf-actions">
+          <a id="download-btn" class="btn-view" download="worksheet.pdf">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            View / Print
+          </a>
+          <button class="btn-retry" onclick="resetForm()">Retry</button>
+        </div>
+      </div>
+    </div>
+
     <div class="review-panel">
       <div class="panel-title">Review &amp; Edit</div>
 
       <div class="review-empty" id="review-empty">
-        <p>Generated worksheet content will appear here so you can review and edit it before creating the PDF.</p>
+        <p>After you generate, your PDF appears in the center. You can choose to edit the story, questions, or illustration from here.</p>
+      </div>
+
+      <div class="level-compare" id="level-compare">
+        <div class="level-compare-title">Reading level</div>
+        <div class="level-chips" id="level-chips"></div>
+        <p class="level-note" id="level-note"></p>
+        <div class="level-draft" id="level-draft-block" style="display:none">
+          <label>First AI draft (before leveling)</label>
+          <div class="level-draft-text" id="level-draft-text"></div>
+        </div>
+      </div>
+
+      <div class="review-ready" id="review-ready">
+        <p>Your worksheet is ready. Happy with the PDF? Download or print from the preview. Need changes?</p>
+        <button class="btn-edit-worksheet" type="button" onclick="openEditPanel()">Edit worksheet</button>
       </div>
 
       <div class="review-form" id="review-form">
+        <div class="review-intro" id="review-intro">
+          Edit the fields below, then update the PDF or regenerate the illustration.
+        </div>
         <div class="review-field">
           <label for="review-title">Title</label>
           <input id="review-title" type="text" />
@@ -415,40 +587,18 @@
           <label for="review-why">Why</label>
           <input id="review-why" type="text" />
         </div>
+
+        <div class="image-feedback-section">
+          <label for="image-feedback">Illustration feedback (optional)</label>
+          <textarea id="image-feedback" placeholder="e.g. Make the character younger, add a soccer ball, use brighter colors…"></textarea>
+          <p>Use this when you want a new illustration. Leave blank to keep the current image when updating text only.</p>
+        </div>
+
         <div class="review-actions">
-          <button class="btn-create-pdf" id="create-pdf-btn" onclick="createPdfFromReview()">Create PDF</button>
+          <button class="btn-secondary" id="update-pdf-btn" onclick="updatePdf(false)">Update PDF</button>
+          <button class="btn-create-pdf" id="regenerate-image-btn" onclick="updatePdf(true)">Regenerate Illustration</button>
         </div>
       </div>
-    </div>
-
-    <div class="preview-panel">
-      <div class="panel-title">Preview</div>
-
-      <div class="preview-empty" id="preview-empty">
-        <div class="preview-empty-icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3aaa35" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/>
-            <line x1="16" y1="17" x2="8" y2="17"/>
-          </svg>
-        </div>
-        <p>Fill in the prompt and click <strong>Generate</strong> to preview your worksheet here.</p>
-      </div>
-
-      <div id="pdf-section">
-        <div class="pdf-frame-wrap">
-          <iframe id="pdf-frame" title="Worksheet preview"></iframe>
-        </div>
-        <div class="pdf-actions">
-          <a id="download-btn" class="btn-view" download="worksheet.pdf">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            View / Print
-          </a>
-          <button class="btn-retry" onclick="resetForm()">Retry</button>
-        </div>
-      </div>
-
     </div>
   </div>
 </div>
@@ -457,7 +607,81 @@
 <script>
   let selectedGrade = "";
   let currentBlobUrl = null;
+  let currentImageBase64 = null;
   let reviewContent = null;
+
+  function buildWorksheetPayload() {
+    return {
+      title: document.getElementById("review-title").value.trim(),
+      story: document.getElementById("review-story").value.trim(),
+      questions: {
+        q1: document.getElementById("review-who").value.trim(),
+        q2: document.getElementById("review-what").value.trim(),
+        q3: document.getElementById("review-when").value.trim(),
+        q4: document.getElementById("review-where").value.trim(),
+        q5: document.getElementById("review-why").value.trim(),
+      }
+    };
+  }
+
+  function showPdfFromBase64(pdfBase64, title) {
+    const byteChars = atob(pdfBase64);
+    const byteNumbers = new Array(byteChars.length);
+    for (let i = 0; i < byteChars.length; i++) {
+      byteNumbers[i] = byteChars.charCodeAt(i);
+    }
+    const blob = new Blob([new Uint8Array(byteNumbers)], { type: "application/pdf" });
+
+    if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+    currentBlobUrl = URL.createObjectURL(blob);
+
+    const safeName = (title || "worksheet").replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "_") || "worksheet";
+    document.getElementById("pdf-frame").src = currentBlobUrl;
+    document.getElementById("download-btn").href = currentBlobUrl;
+    document.getElementById("download-btn").download = `${safeName}.pdf`;
+
+    document.getElementById("preview-empty").style.display = "none";
+    document.getElementById("pdf-section").style.display = "flex";
+  }
+
+  function showWorksheetResult(data) {
+    reviewContent = {
+      title: data.content?.title || "",
+      story: data.content?.story || "",
+      questions: {
+        q1: data.content?.questions?.q1 || "",
+        q2: data.content?.questions?.q2 || "",
+        q3: data.content?.questions?.q3 || "",
+        q4: data.content?.questions?.q4 || "",
+        q5: data.content?.questions?.q5 || ""
+      }
+    };
+
+    currentImageBase64 = data.image_base64 || null;
+    populateReviewPanel(reviewContent);
+    renderLevelCompare(data.reading_level);
+    showPdfFromBase64(data.pdf_base64, reviewContent.title);
+
+    const editOpen = document.getElementById("review-form").style.display === "flex";
+
+    document.getElementById("review-empty").style.display = "none";
+    if (editOpen) {
+      document.getElementById("review-ready").style.display = "none";
+      document.getElementById("review-form").style.display = "flex";
+      document.getElementById("review-intro").style.display = "block";
+    } else {
+      document.getElementById("review-ready").style.display = "flex";
+      document.getElementById("review-form").style.display = "none";
+      document.getElementById("review-intro").style.display = "none";
+    }
+    document.getElementById("image-feedback").value = "";
+  }
+
+  function openEditPanel() {
+    document.getElementById("review-ready").style.display = "none";
+    document.getElementById("review-form").style.display = "flex";
+    document.getElementById("review-intro").style.display = "block";
+  }
 
   document.querySelector(".hamburger").addEventListener("click", () => {
     document.getElementById("sidebar").classList.toggle("open");
@@ -472,7 +696,7 @@
   });
 
   function setStep(n) {
-    for (let i = 1; i <= 3; i++) {
+    for (let i = 1; i <= 4; i++) {
       const el  = document.getElementById(`step-${i}`);
       const dot = el.querySelector(".step-dot");
       el.classList.remove("active", "done");
@@ -506,7 +730,8 @@
     setStep(1);
 
     const t2 = setTimeout(() => setStep(2), 8000);
-    const t3 = setTimeout(() => setStep(3), 18000);
+    const t3 = setTimeout(() => setStep(3), 20000);
+    const t4 = setTimeout(() => setStep(4), 30000);
 
     try {
       const response = await fetch("/generate", {
@@ -515,7 +740,7 @@
         body: JSON.stringify({ grade: selectedGrade, reading_level: readingLevel, interests })
       });
 
-      clearTimeout(t2); clearTimeout(t3);
+      clearTimeout(t2); clearTimeout(t3); clearTimeout(t4);
 
       if (!response.ok) {
         const err = await response.json();
@@ -523,34 +748,66 @@
       }
 
       const data = await response.json();
-      reviewContent = {
-        title: data.content?.title || "",
-        story: data.content?.story || "",
-        questions: {
-          q1: data.content?.questions?.q1 || "",
-          q2: data.content?.questions?.q2 || "",
-          q3: data.content?.questions?.q3 || "",
-          q4: data.content?.questions?.q4 || "",
-          q5: data.content?.questions?.q5 || ""
-        }
-      };
-
-      populateReviewPanel(reviewContent);
-
-      document.getElementById("preview-empty").style.display = "none";
-      document.getElementById("pdf-section").style.display = "none";
-      document.getElementById("review-empty").style.display = "none";
-      document.getElementById("review-form").style.display = "flex";
+      showWorksheetResult(data);
       statusArea.style.display = "none";
 
     } catch (err) {
-      clearTimeout(t2); clearTimeout(t3);
+      clearTimeout(t2); clearTimeout(t3); clearTimeout(t4);
       showError(err.message);
       statusArea.style.display = "none";
     }
 
     btn.disabled = false;
     btn.innerHTML = "Generate";
+  }
+
+  function renderLevelCompare(level) {
+    const card = document.getElementById("level-compare");
+    if (!level || !level.first_draft || !level.final) {
+      card.style.display = "none";
+      return;
+    }
+
+    const first = level.first_draft;
+    const final = level.final;
+    const chips = document.getElementById("level-chips");
+    chips.innerHTML = "";
+
+    const items = [
+      { label: "First draft", value: `Grade ${first.estimated_grade}` },
+      { label: "Final", value: `Grade ${final.estimated_grade}`, highlight: true },
+      { label: "Target", value: level.target_band },
+      { label: "Confidence", value: final.confidence }
+    ];
+    items.forEach(item => {
+      const span = document.createElement("span");
+      span.className = "level-chip" + (item.highlight ? " highlight" : "");
+      span.innerHTML = `${item.label}: <strong>${item.value}</strong>`;
+      chips.appendChild(span);
+    });
+
+    const note = document.getElementById("level-note");
+    if (level.improved && level.llm_rewrite_applied) {
+      note.textContent = first.below_target
+        ? "The first draft was below the target. An AI rewrite brought it closer to the selected reading level. The PDF uses the final version."
+        : "The first draft was above the target. An AI rewrite brought it closer to the selected reading level. The PDF uses the final version.";
+    } else if (level.improved) {
+      note.textContent = "Deterministic edits lowered the first draft toward the selected reading level. The PDF uses the final version.";
+    } else if (final.in_band) {
+      note.textContent = "The first draft already measured in the target band, so it was left unchanged.";
+    } else {
+      note.textContent = "The passage is still outside the selected reading level.";
+    }
+
+    const draftBlock = document.getElementById("level-draft-block");
+    if (level.improved && first.story) {
+      document.getElementById("level-draft-text").textContent = first.story;
+      draftBlock.style.display = "block";
+    } else {
+      draftBlock.style.display = "none";
+    }
+
+    card.style.display = "flex";
   }
 
   function populateReviewPanel(content) {
@@ -563,25 +820,36 @@
     document.getElementById("review-why").value = content.questions.q5;
   }
 
-  async function createPdfFromReview() {
-    const btn = document.getElementById("create-pdf-btn");
-    btn.disabled = true;
-    btn.textContent = "Creating PDF…";
+  async function updatePdf(regenerateImage) {
+    const updateBtn = document.getElementById("update-pdf-btn");
+    const regenBtn = document.getElementById("regenerate-image-btn");
+    const imageFeedback = document.getElementById("image-feedback").value.trim();
+    const payload = buildWorksheetPayload();
 
-    const payload = {
-      title: document.getElementById("review-title").value.trim(),
-      story: document.getElementById("review-story").value.trim(),
-      questions: {
-        q1: document.getElementById("review-who").value.trim(),
-        q2: document.getElementById("review-what").value.trim(),
-        q3: document.getElementById("review-when").value.trim(),
-        q4: document.getElementById("review-where").value.trim(),
-        q5: document.getElementById("review-why").value.trim()
-      }
-    };
+    if (!payload.title || !payload.story) {
+      showError("Title and story are required before updating the PDF.");
+      return;
+    }
+
+    if (regenerateImage && !imageFeedback) {
+      showError("Add illustration feedback before regenerating the image.");
+      return;
+    }
+
+    updateBtn.disabled = true;
+    regenBtn.disabled = true;
+    updateBtn.textContent = regenerateImage ? "Updating…" : "Updating PDF…";
+    regenBtn.textContent = regenerateImage ? "Regenerating…" : "Regenerate Illustration";
+
+    if (!regenerateImage && currentImageBase64) {
+      payload.image_base64 = currentImageBase64;
+    }
+    if (regenerateImage) {
+      payload.image_feedback = imageFeedback;
+    }
 
     try {
-      const response = await fetch("/create-pdf", {
+      const response = await fetch("/update-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -592,34 +860,34 @@
         throw new Error(err.error || "Unknown server error");
       }
 
-      const blob = await response.blob();
-      if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
-      currentBlobUrl = URL.createObjectURL(blob);
-
-      const title = document.getElementById("review-title").value.trim() || "worksheet";
-      const safeName = title.replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "_") || "worksheet";
-
-      document.getElementById("pdf-frame").src = currentBlobUrl;
-      document.getElementById("download-btn").href = currentBlobUrl;
-      document.getElementById("download-btn").download = `${safeName}.pdf`;
-
-      document.getElementById("preview-empty").style.display = "none";
-      document.getElementById("pdf-section").style.display = "flex";
+      const data = await response.json();
+      showWorksheetResult(data);
     } catch (err) {
       showError(err.message);
     } finally {
-      btn.disabled = false;
-      btn.textContent = "Create PDF";
+      updateBtn.disabled = false;
+      regenBtn.disabled = false;
+      updateBtn.textContent = "Update PDF";
+      regenBtn.textContent = "Regenerate Illustration";
     }
   }
 
   function resetForm() {
+    if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+    currentBlobUrl = null;
+    currentImageBase64 = null;
+    reviewContent = null;
+
     document.getElementById("pdf-section").style.display = "none";
     document.getElementById("preview-empty").style.display = "flex";
     document.getElementById("review-empty").style.display = "flex";
+    document.getElementById("level-compare").style.display = "none";
+    document.getElementById("review-ready").style.display = "none";
     document.getElementById("review-form").style.display = "none";
+    document.getElementById("review-intro").style.display = "none";
     document.getElementById("status-area").style.display = "none";
     document.getElementById("error-box").style.display = "none";
+    document.getElementById("image-feedback").value = "";
     const btn = document.getElementById("generate-btn");
     btn.disabled = false;
     btn.innerHTML = "Generate";
