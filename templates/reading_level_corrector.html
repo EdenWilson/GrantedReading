@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Granted Reading — How Reading Level Works</title>
+<title>Granted Reading — Reading Level Corrector</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Nunito+Sans:wght@400;600&display=swap" rel="stylesheet" />
@@ -82,8 +82,8 @@
 
   .page {
     margin: var(--header-h) auto 0;
-    padding: 40px 32px 64px;
-    max-width: 820px;
+    padding: 28px 32px 48px;
+    max-width: 1180px;
     width: 100%;
   }
 
@@ -101,25 +101,6 @@
     margin-bottom: 28px;
   }
 
-  .steps {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 28px;
-  }
-
-  .step-pill {
-    font-family: var(--font);
-    font-size: 13px;
-    font-weight: 800;
-    background: var(--white);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 8px 14px;
-    color: var(--green-dark);
-  }
-  .step-pill span { color: var(--muted); font-weight: 700; }
-
   .card {
     background: var(--white);
     border: 1px solid var(--border);
@@ -135,74 +116,162 @@
     margin-bottom: 8px;
   }
 
-  .card p, .card li {
-    font-size: 15px;
-    line-height: 1.7;
-    color: var(--ink);
+  .tool-card { margin-bottom: 0; }
+  .worksheet-layout {
+    display: grid;
+    grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
+    gap: 24px;
+    align-items: start;
   }
-
-  .card p + p { margin-top: 12px; }
-
-  .card ul {
-    margin: 12px 0 0 20px;
-  }
-
-  .card li { margin-bottom: 8px; }
-
-  .example {
-    margin-top: 16px;
+  .worksheet-side {
+    position: sticky;
+    top: calc(var(--header-h) + 16px);
+    max-height: calc(100vh - var(--header-h) - 32px);
+    overflow: auto;
     background: var(--bg);
+    border: 1px dashed var(--border);
+    border-radius: 14px;
+    padding: 18px;
+  }
+  .worksheet-side.is-result {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0;
+    background: #fff;
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px 16px;
   }
-
-  .example-label {
-    font-size: 12px;
-    font-weight: 800;
+  .side-empty {
     color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-bottom: 6px;
-  }
-
-  .example p { font-size: 14px; color: var(--ink); }
-
-  .formula {
-    margin-top: 16px;
-    font-family: ui-monospace, Menlo, monospace;
     font-size: 14px;
-    line-height: 1.6;
-    background: #f0fdf4;
-    border: 1px solid #c8ebc6;
-    border-radius: 10px;
-    padding: 14px 16px;
-    color: var(--green-dark);
-  }
-
-  .note {
-    margin-top: 8px;
-    font-size: 13px;
-    color: #92400e;
-    background: #fffbeb;
-    border: 1px solid #fde68a;
-    border-radius: 10px;
-    padding: 10px 14px;
     line-height: 1.55;
+    padding: 28px 8px;
+    text-align: center;
   }
-
-  .cta {
-    margin-top: 8px;
-    font-size: 15px;
-    line-height: 1.6;
-  }
-
-  .cta a {
-    color: var(--green-dark);
+  .worksheet-side h2 {
+    font-family: var(--font);
+    font-size: 18px;
     font-weight: 800;
-    text-decoration: none;
+    margin-bottom: 8px;
   }
-  .cta a:hover { text-decoration: underline; }
+  #source-material { min-height: 80px; }
+  @media (max-width: 900px) {
+    .worksheet-layout { grid-template-columns: 1fr; }
+    .worksheet-side { position: static; max-height: none; }
+  }
+  .mode-toggle {
+    display: flex; gap: 8px; margin: 16px 0 20px;
+  }
+  .mode-btn {
+    font-family: var(--font); font-size: 14px; font-weight: 800;
+    border: 1.5px solid var(--border); background: var(--bg);
+    border-radius: 8px; padding: 8px 14px; cursor: pointer; color: var(--muted);
+  }
+  .mode-btn.selected { background: var(--green); border-color: var(--green); color: #fff; }
+  .field { margin-bottom: 16px; }
+  .field-label {
+    display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px;
+  }
+  .field-hint { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+  .field-error { font-size: 13px; color: #b91c1c; margin-top: 6px; display: none; }
+  textarea, select, input[type="text"], input[type="number"] {
+    width: 100%; font-family: var(--font-body); font-size: 14px;
+    border: 1.5px solid var(--border); border-radius: var(--radius);
+    padding: 10px 12px; background: var(--white);
+  }
+  textarea { min-height: 120px; resize: vertical; }
+  .check-row { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .dok-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .primary-btn, .secondary-btn {
+    font-family: var(--font); font-weight: 800; font-size: 14px;
+    border: none; border-radius: var(--radius); padding: 12px 16px; cursor: pointer;
+  }
+  .primary-btn { background: var(--gold); color: #fff; width: 100%; }
+  .primary-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .secondary-btn { background: var(--green); color: #fff; }
+  .result-box {
+    margin-top: 16px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px; white-space: pre-wrap; font-size: 14px; line-height: 1.55;
+  }
+  .status-ok { color: var(--green-dark); font-weight: 800; }
+  .status-fail { color: #b91c1c; font-weight: 800; }
+  .block-list { display: flex; flex-direction: column; gap: 10px; }
+  .block-section { margin-top: 8px; display: flex; flex-direction: column; gap: 10px; }
+  .block-section + .block-section { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--border); }
+  .block-section-title {
+    font-family: var(--font); font-size: 14px; font-weight: 800; margin-bottom: 4px;
+  }
+  .block-row {
+    border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px;
+    background: var(--white);
+  }
+  .block-row.low { border-color: #f5a623; background: #fffbeb; }
+  .block-row.ignore { border-color: #d1d5db; background: #f9fafb; }
+  .block-preview {
+    max-width: 180px; max-height: 140px; margin-top: 8px;
+    border-radius: 8px; border: 1px solid var(--border); display: block;
+  }
+  .block-row-head {
+    display: flex; justify-content: space-between; gap: 10px; align-items: center;
+    margin-bottom: 6px; font-size: 12px; font-weight: 800;
+  }
+  .block-text { font-size: 13px; line-height: 1.45; }
+  .hidden { display: none !important; }
+  .report-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+  .report-table th, .report-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .side-loading {
+    font-size: 14px; color: var(--muted); line-height: 1.55; padding: 12px 0 4px;
+  }
+  .sheet-paper {
+    flex: 1;
+    overflow: auto;
+    background: #fff;
+    padding: 28px 26px 20px;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: #1a1a1a;
+  }
+  .sheet-paper .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+  .sheet-paper .meta-table td { width: 50%; vertical-align: top; padding-right: 16px; }
+  .sheet-paper .meta-label { font-size: 13px; margin-bottom: 4px; }
+  .sheet-paper .meta-line { border-bottom: 1px solid #1a1a1a; height: 16px; width: 95%; }
+  .sheet-paper h3 {
+    font-family: var(--font); font-size: 22px; font-weight: 800;
+    text-align: center; margin: 4px 0 16px;
+  }
+  .sheet-story-wrap { overflow: hidden; margin-bottom: 18px; }
+  .sheet-story-wrap img {
+    float: right;
+    width: 200px;
+    height: 200px;
+    object-fit: cover;
+    margin: 0 0 10px 16px;
+  }
+  .sheet-question { margin-bottom: 14px; }
+  .sheet-question-number { font-weight: 700; }
+  .sheet-answer-line { border-bottom: 1px solid #9ca3af; height: 22px; margin-top: 6px; }
+  .sheet-choice { margin-left: 18px; margin-bottom: 4px; }
+  #worksheet-result {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
+  }
+  .result-actions {
+    flex-shrink: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    background: #fff;
+  }
+  .result-actions .secondary-btn { text-decoration: none; display: inline-block; }
+  .result-actions .ghost-btn {
+    background: #fff; color: var(--ink); border: 1.5px solid var(--border);
+  }
+  .result-status { width: 100%; font-size: 12px; margin: 0; }
 </style>
 </head>
 <body>
@@ -210,136 +279,530 @@
 {% include '_nav.html' %}
 
 <div class="page">
-  <h1 class="page-title">How reading level works</h1>
+  <h1 class="page-title">Reading Level Corrector</h1>
   <p class="lead">
-    Official Lexile measures come from MetaMetrics. We are not a licensed
-    Lexile product. We use the same two text features Lexile is built on —
-    word frequency and sentence length — and report an estimated grade band,
-    not an L score. If you already teach with Lexile, the first box is the
-    theory you know. The rest is how this app operationalizes it.
+    Level a pasted passage, or upload a whole worksheet and adjust both the
+    reading band and the question DOK mix.
+    <a href="/how-reading-level-works" style="color:var(--green-dark);font-weight:800;text-decoration:none">How the score works</a>
+    is on its own page.
   </p>
 
-  <div class="steps">
-    <div class="step-pill">1 <span>The score</span></div>
-    <div class="step-pill">2 <span>Tokens &amp; NLP</span></div>
-    <div class="step-pill">3 <span>The math</span></div>
-    <div class="step-pill">4 <span>How we move it</span></div>
-  </div>
-
-  <section class="card">
-    <h2>1. How Lexile calculates text complexity</h2>
-    <p>
-      Lexile puts the <em>reader</em> and the <em>text</em> on one developmental
-      scale (typically 0L–2000L; below 0L is coded BR, Beginning Reader).
-      The classroom use you already know is the match: a text near the
-      student’s measure (often cited as about a 75% comprehension target
-      when they are aligned) is instructional; well below is independent;
-      well above is frustration. Stretch bands by grade exist, but Lexile
-      itself is not a grade equivalent.
-    </p>
-    <p>
-      The text measure is a regression on two proxies. The exact equation
-      is proprietary. The two predictors are public:
-    </p>
-    <ul>
-      <li><strong>Semantic difficulty — word frequency.</strong> Each word is scored by how often it appears in a very large corpus, usually on a log scale. High-frequency words (<em>house</em>, <em>said</em>) contribute little demand. Low-frequency words (<em>skepticism</em>, <em>expeditiously</em>) raise demand. This is vocabulary load: how much meaning the reader has to unpack from uncommon words.</li>
-      <li><strong>Syntactic difficulty — mean sentence length.</strong> Lexile uses average words per sentence as a stand-in for structure. Longer sentences tend to carry more embedding and subordination, which is harder on working memory even when every word is known.</li>
-    </ul>
-    <p>
-      Lexile does not score prior knowledge, text structure (how a narrative
-      or informational piece is organized), decoding versus language
-      comprehension, or motivation. Those still matter for a special-ed
-      placement; they just are not in the number.
-    </p>
-    <div class="example">
-      <div class="example-label">Same two levers</div>
-      <p>
-        “The dog ran to the park.” — high-frequency words, mean length 6,
-        low semantic and syntactic demand. “The committee’s decision to
-        postpone the merger was met with considerable skepticism.” — several
-        low-frequency content words and one long sentence, both levers up.
-      </p>
+  <section class="card tool-card">
+    <div class="mode-toggle">
+      <button type="button" class="mode-btn selected" id="mode-passage" data-mode="passage">Single passage</button>
+      <button type="button" class="mode-btn" id="mode-worksheet" data-mode="worksheet">Full worksheet</button>
     </div>
-  </section>
 
-  <section class="card">
-    <h2>2. Tokens and NLP, in plain language</h2>
-    <p>
-      A computer cannot “just read” a story the way a person does. It has to
-      break the page into pieces it can count. That is all this section is.
-    </p>
-    <ul>
-      <li><strong>A token</strong> is one piece of the sentence — usually a word. In “The dog ran,” there are three word tokens: <em>The</em>, <em>dog</em>, <em>ran</em>.</li>
-      <li><strong>NLP</strong> (natural language processing) is the set of tools that find those pieces: where each sentence ends, which tokens are real words, and which words are just glue (<em>the</em>, <em>of</em>, <em>and</em>).</li>
-    </ul>
-    <p>
-      We only score the meaning-carrying words — nouns, verbs, adjectives,
-      adverbs. Little function words do not count. Names of people are left
-      out too, because a name is not a vocabulary burden.
-    </p>
-    <p>
-      After NLP has done that sorting, we have the two Lexile-style averages:
-      how common the content words are (semantics), and how many words sit in
-      a typical sentence (syntax). Those two averages are what the next box
-      turns into a grade.
-    </p>
-  </section>
-
-  <section class="card">
-    <h2>3. How those pieces become a number in this app</h2>
-    <p>
-      We do not output an L score. We take the same two predictors Lexile
-      uses — mean log word frequency (semantic) and mean sentence length
-      (syntactic) — and map them onto an estimated grade with a linear
-      combination. The coefficients are ours. They are not fitted to a large
-      labeled set of worksheet stories, so treat ordering as trustworthy
-      and the exact decimal as a guide.
-    </p>
-    <div class="formula">
-      estimated grade =<br>
-      4.46<br>
-      − 2.60 × (how common the content words are)<br>
-      + 0.50 × (average words per sentence)
+    <div id="passage-panel">
+      <div class="field">
+        <label class="field-label" for="passage-text">Passage</label>
+        <textarea id="passage-text" placeholder="Paste the passage to level…"></textarea>
+      </div>
+      <div class="field">
+        <label class="field-label" for="passage-grade">Target grade band</label>
+        <select id="passage-grade">
+          <option value="" disabled selected>Select a level…</option>
+          <option value="K">Kindergarten</option>
+          <option value="1">1st grade</option>
+          <option value="2">2nd grade</option>
+          <option value="3">3rd grade</option>
+          <option value="4">4th grade</option>
+          <option value="5">5th grade</option>
+          <option value="6">6th grade</option>
+          <option value="7">7th grade</option>
+          <option value="8">8th grade</option>
+          <option value="9">9th grade</option>
+          <option value="10">10th grade</option>
+          <option value="11">11th grade</option>
+          <option value="12">12th grade</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label" for="passage-protected">Protected terms (optional)</label>
+        <input id="passage-protected" type="text" placeholder="photosynthesis, resilient" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="passage-type">Passage type (optional)</label>
+        <select id="passage-type">
+          <option value="">Not specified</option>
+          <option value="narrative">Narrative</option>
+          <option value="informational">Informational</option>
+        </select>
+      </div>
+      <div class="field check-row">
+        <input id="passage-rewrite" type="checkbox" checked />
+        <label for="passage-rewrite">Allow an LLM rewrite if deterministic repair cannot reach the band</label>
+      </div>
+      <div id="passage-error" class="field-error"></div>
+      <button class="primary-btn" id="passage-submit" type="button">Level passage</button>
+      <div id="passage-result" class="hidden">
+        <p id="passage-status"></p>
+        <div class="result-box" id="passage-output"></div>
+      </div>
     </div>
-    <p>
-      Common words raise the “how common” number, and because that term is
-      subtracted, the grade goes <em>down</em> — that is the semantic lever.
-      Longer sentences add to the grade — that is the syntactic lever. NLP
-      finds the tokens, we average them, the formula outputs an estimated
-      grade.
-    </p>
-    <p>
-      A target of “Grade 4” is a band, 3.5–4.5, analogous in spirit to a
-      Lexile range rather than a single L. Inside the band is a pass.
-      Outside it — too hard or too easy — we try to move semantic demand,
-      syntactic demand, or both.
-    </p>
-  </section>
 
-  <section class="card">
-    <h2>4. How we move the score</h2>
-    <p>
-      The formula only moves if we change one of those two averages. So every
-      fix is aimed at rarer or more common words, and at longer or shorter
-      sentences, until the score sits inside the target band.
-    </p>
-    <ul>
-      <li><strong>Split a long sentence</strong> into two shorter ones. That drops the average words-per-sentence. We do not delete what the sentence said.</li>
-      <li><strong>Swap a rare word</strong> for a more familiar one only when it still means the same thing. “Postpone” can become “delay.” It should not become a word that changes the idea.</li>
-      <li><strong>If that is not enough — too hard or too easy —</strong> we ask the writing model to revise from a checklist: which words were rare, which sentences were long or short, and what grade we want. Then we run the same formula again. The model does not get to grade itself.</li>
-    </ul>
-    <p>
-      Words the teacher asked us to keep (a science term the lesson is
-      teaching) stay as they are. We spend the difficulty budget on
-      everything else.
-    </p>
-    <p class="cta">
-      On the <a href="/">Worksheet Generator</a> you will see the first
-      draft’s grade next to the final grade. That gap is this process
-      working.
-    </p>
+    <div id="worksheet-panel" class="hidden">
+      <div class="worksheet-layout">
+        <div class="worksheet-form">
+      <div class="field">
+        <label class="field-label" for="worksheet-file">Worksheet file (DOCX or PDF)</label>
+        <input id="worksheet-file" type="file" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+        <p class="field-hint">DOCX is first-class. PDF is best-effort and most blocks will be flagged for review.</p>
+      </div>
+      <div class="field">
+        <label class="field-label">Worksheet type</label>
+        <div class="mode-toggle" style="margin:0">
+          <button type="button" class="mode-btn selected" id="kind-practice" data-kind="practice">Practice worksheet</button>
+          <button type="button" class="mode-btn" id="kind-test" data-kind="test">Test</button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="source-material">Source material <span id="source-required-label">(optional)</span></label>
+        <textarea id="source-material" placeholder="Notes, chapter, or slide text this worksheet is drawn from…"></textarea>
+        <p class="field-hint">Required for tests. If it is longer than the token ceiling, you will be asked to narrow it — it will not be truncated.</p>
+        <p class="field-error" id="source-error"></p>
+      </div>
+      <div class="field">
+        <label class="field-label" for="worksheet-grade">Target grade band</label>
+        <select id="worksheet-grade">
+          <option value="" disabled selected>Select a level…</option>
+          <option value="K">Kindergarten</option>
+          <option value="1">1st grade</option>
+          <option value="2">2nd grade</option>
+          <option value="3">3rd grade</option>
+          <option value="4">4th grade</option>
+          <option value="5">5th grade</option>
+          <option value="6">6th grade</option>
+          <option value="7">7th grade</option>
+          <option value="8">8th grade</option>
+          <option value="9">9th grade</option>
+          <option value="10">10th grade</option>
+          <option value="11">11th grade</option>
+          <option value="12">12th grade</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label" for="worksheet-protected">Protected terms (optional)</label>
+        <input id="worksheet-protected" type="text" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="worksheet-type">Passage type</label>
+        <select id="worksheet-type">
+          <option value="narrative">Narrative (story)</option>
+          <option value="informational">Informational</option>
+        </select>
+        <p class="field-hint">Stories should be Narrative so the rewrite can restructure plot. Informational keeps every fact.</p>
+      </div>
+      <div class="field check-row">
+        <input id="worksheet-convert" type="checkbox" />
+        <label for="worksheet-convert">Adjust question difficulty (DOK)</label>
+      </div>
+      <p class="field-hint" style="margin-top:-8px;margin-bottom:16px">Leave off to keep the original questions. Turn on only if you want stems rewritten to a grade mix.</p>
+      <div class="field hidden" id="worksheet-dok-field">
+        <label class="field-label">Question difficulty mix</label>
+        <select id="dok-mix-mode">
+          <option value="auto">Auto (grade-based default)</option>
+          <option value="custom">Custom</option>
+        </select>
+        <div id="dok-custom" class="dok-grid hidden" style="margin-top:8px">
+          <label>DOK 1 <input id="dok-p1" type="number" min="0" max="100" value="40" /></label>
+          <label>DOK 2 <input id="dok-p2" type="number" min="0" max="100" value="40" /></label>
+          <label>DOK 3 <input id="dok-p3" type="number" min="0" max="100" value="20" /></label>
+          <label>DOK 4 <input id="dok-p4" type="number" min="0" max="100" value="0" /></label>
+        </div>
+        <p class="field-error" id="dok-mix-error"></p>
+      </div>
+      <div id="worksheet-error" class="field-error"></div>
+      <button class="primary-btn" id="segment-btn" type="button">Detect blocks</button>
+        </div>
+
+        <div class="worksheet-side" id="worksheet-side">
+          <div id="side-empty" class="side-empty">Detected blocks will show here after you click Detect blocks. Confirm each part, put Name / Date and other untouchable lines in Ignore, and pictures will be kept.</div>
+      <div id="segment-review" class="hidden">
+        <h2>Review detected blocks</h2>
+        <p class="field-hint">Confirm each part before leveling. Low-confidence rows are highlighted. Move Name, Date, and anything else the AI should not touch into Ignore. Pictures stay as they are.</p>
+        <div class="block-list" id="block-list"></div>
+        <p class="field-error" id="worksheet-side-error"></p>
+        <p id="side-loading" class="side-loading hidden">Leveling the worksheet. Passages and questions can take half a minute.</p>
+        <button class="secondary-btn" id="confirm-blocks" type="button" style="margin-top:12px">Looks good, continue</button>
+      </div>
+
+      <div id="worksheet-result" class="hidden">
+        <div class="sheet-paper" id="worksheet-sheet"></div>
+        <div class="result-actions">
+          <p id="worksheet-status" class="result-status"></p>
+          <a id="worksheet-download" class="secondary-btn" href="#" download="worksheet.pdf">Download PDF</a>
+          <button class="secondary-btn ghost-btn" id="review-blocks-again" type="button">Review blocks again</button>
+        </div>
+      </div>
+        </div>
+      </div>
+    </div>
   </section>
 </div>
 
+<script>
+  document.querySelector(".hamburger").addEventListener("click", () => {
+    const sidebar = document.getElementById("sidebar");
+    if (sidebar) sidebar.classList.toggle("open");
+  });
+
+  const BLOCK_TYPES = ["passage", "instructions", "question", "answer_choice", "ignore"];
+  const TYPE_LABELS = {
+    passage: "Passage",
+    instructions: "Instructions",
+    question: "Question",
+    answer_choice: "Answer choice",
+    ignore: "Ignore (do not change)",
+    image: "Image (kept as-is)"
+  };
+  let worksheetKind = "practice";
+  let detectedBlocks = [];
+  let worksheetPdfUrl = null;
+  const confirmBtnDefault = "Looks good, continue";
+
+  document.getElementById("mode-passage").addEventListener("click", () => setMode("passage"));
+  document.getElementById("mode-worksheet").addEventListener("click", () => setMode("worksheet"));
+
+  function setMode(mode) {
+    document.getElementById("mode-passage").classList.toggle("selected", mode === "passage");
+    document.getElementById("mode-worksheet").classList.toggle("selected", mode === "worksheet");
+    document.getElementById("passage-panel").classList.toggle("hidden", mode !== "passage");
+    document.getElementById("worksheet-panel").classList.toggle("hidden", mode !== "worksheet");
+  }
+
+  document.getElementById("kind-practice").addEventListener("click", () => setKind("practice"));
+  document.getElementById("kind-test").addEventListener("click", () => setKind("test"));
+
+  function setKind(kind) {
+    worksheetKind = kind;
+    document.getElementById("kind-practice").classList.toggle("selected", kind === "practice");
+    document.getElementById("kind-test").classList.toggle("selected", kind === "test");
+    document.getElementById("source-required-label").textContent = kind === "test" ? "(required)" : "(optional)";
+  }
+
+  document.getElementById("dok-mix-mode").addEventListener("change", (event) => {
+    document.getElementById("dok-custom").classList.toggle("hidden", event.target.value !== "custom");
+  });
+  document.getElementById("worksheet-convert").addEventListener("change", (event) => {
+    document.getElementById("worksheet-dok-field").classList.toggle("hidden", !event.target.checked);
+  });
+
+  document.getElementById("passage-submit").addEventListener("click", async () => {
+    const error = document.getElementById("passage-error");
+    error.style.display = "none";
+    const text = document.getElementById("passage-text").value.trim();
+    const targetGrade = document.getElementById("passage-grade").value;
+    if (!text) { error.textContent = "Enter some text to correct."; error.style.display = "block"; return; }
+    if (!targetGrade) { error.textContent = "Choose a target grade level."; error.style.display = "block"; return; }
+    const btn = document.getElementById("passage-submit");
+    btn.disabled = true;
+    try {
+      const response = await fetch("/correct-reading-level", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text,
+          target_grade: targetGrade,
+          protected_terms: document.getElementById("passage-protected").value,
+          allow_rewrite: document.getElementById("passage-rewrite").checked,
+          passage_type: document.getElementById("passage-type").value || null
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Correction failed");
+      document.getElementById("passage-result").classList.remove("hidden");
+      const ok = data.gate_passed;
+      document.getElementById("passage-status").innerHTML = ok
+        ? `<span class="status-ok">In band (${data.reading_level.target_band})</span>`
+        : `<span class="status-fail">Still outside band (${data.reading_level.target_band})</span>`;
+      document.getElementById("passage-output").textContent =
+        `Before: grade ${data.initial_reading_level.estimated_grade}\nAfter: grade ${data.reading_level.estimated_grade}\n\n${data.corrected_text}`;
+    } catch (err) {
+      error.textContent = err.message;
+      error.style.display = "block";
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById("segment-btn").addEventListener("click", async () => {
+    const error = document.getElementById("worksheet-error");
+    const sourceError = document.getElementById("source-error");
+    error.style.display = "none";
+    sourceError.style.display = "none";
+    const file = document.getElementById("worksheet-file").files[0];
+    if (!file) { error.textContent = "Upload a .docx or .pdf worksheet."; error.style.display = "block"; return; }
+    if (worksheetKind === "test" && !document.getElementById("source-material").value.trim()) {
+      sourceError.textContent = "Tests need source material before you continue.";
+      sourceError.style.display = "block";
+      return;
+    }
+    const btn = document.getElementById("segment-btn");
+    btn.disabled = true;
+    const body = new FormData();
+    body.append("worksheet", file);
+    try {
+      const response = await fetch("/segment-worksheet", { method: "POST", body });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not read that worksheet");
+      detectedBlocks = data.blocks || [];
+      renderBlocks(detectedBlocks);
+      setSideMode("review");
+      document.getElementById("side-loading").classList.add("hidden");
+      hideWorksheetErrors();
+    } catch (err) {
+      error.textContent = err.message;
+      error.style.display = "block";
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  function renderBlockRow(block, index) {
+    const isImage = block.block_type === "image";
+    const options = BLOCK_TYPES.map((type) =>
+      `<option value="${type}" ${type === block.block_type ? "selected" : ""}>${TYPE_LABELS[type] || type}</option>`
+    ).join("");
+    const flag = block.confidence === "low" ? "low confidence" : "high confidence";
+    const rowClass = [
+      "block-row",
+      block.confidence === "low" ? "low" : "",
+      block.block_type === "ignore" ? "ignore" : ""
+    ].filter(Boolean).join(" ");
+    const typeControl = isImage
+      ? `<span>${TYPE_LABELS.image}</span>`
+      : `<select data-index="${index}">${options}</select>`;
+    const preview = isImage && block.asset_base64
+      ? `<img class="block-preview" alt="Worksheet image" src="data:${block.asset_mime || "image/png"};base64,${block.asset_base64}" />`
+      : `<div class="block-text"></div>`;
+    return `<div class="${rowClass}" data-index="${index}">
+      <div class="block-row-head">
+        ${typeControl}
+        <span>${flag}</span>
+      </div>
+      ${preview}
+    </div>`;
+  }
+
+  function renderSection(title, hint, indexes, blocks) {
+    if (!indexes.length) return "";
+    return `<section class="block-section">
+      <h3 class="block-section-title">${title}</h3>
+      <p class="field-hint">${hint}</p>
+      ${indexes.map((index) => renderBlockRow(blocks[index], index)).join("")}
+    </section>`;
+  }
+
+  function renderBlocks(blocks) {
+    const list = document.getElementById("block-list");
+    const leveled = [];
+    const ignored = [];
+    const images = [];
+    blocks.forEach((block, index) => {
+      if (block.block_type === "image") images.push(index);
+      else if (block.block_type === "ignore") ignored.push(index);
+      else leveled.push(index);
+    });
+    list.innerHTML = [
+      renderSection("Level these parts", "Passages, questions, choices, and directions the AI may rewrite.", leveled, blocks),
+      renderSection("Ignore", "Name, Date, score boxes, and anything else that should not be touched.", ignored, blocks),
+      renderSection("Pictures", "Non-text assets are kept as-is and written back into the worksheet.", images, blocks)
+    ].join("");
+    list.querySelectorAll(".block-text").forEach((el) => {
+      const row = el.closest(".block-row");
+      const index = Number(row.dataset.index);
+      el.textContent = blocks[index].text;
+    });
+    list.querySelectorAll("select").forEach((select) => {
+      select.addEventListener("change", (event) => {
+        detectedBlocks[Number(event.target.dataset.index)].block_type = event.target.value;
+        renderBlocks(detectedBlocks);
+      });
+    });
+  }
+
+  function customMixOrNull() {
+    if (document.getElementById("dok-mix-mode").value !== "custom") return null;
+    const mix = {
+      1: Number(document.getElementById("dok-p1").value || 0),
+      2: Number(document.getElementById("dok-p2").value || 0),
+      3: Number(document.getElementById("dok-p3").value || 0),
+      4: Number(document.getElementById("dok-p4").value || 0)
+    };
+    const total = mix[1] + mix[2] + mix[3] + mix[4];
+    const box = document.getElementById("dok-mix-error");
+    if (total !== 100) {
+      box.textContent = `DOK percents must sum to 100 (currently ${total}).`;
+      box.style.display = "block";
+      return undefined;
+    }
+    box.style.display = "none";
+    return mix;
+  }
+
+  function hideWorksheetErrors() {
+    document.getElementById("worksheet-error").style.display = "none";
+    document.getElementById("worksheet-side-error").style.display = "none";
+  }
+
+  function showWorksheetError(message) {
+    ["worksheet-error", "worksheet-side-error"].forEach((id) => {
+      const box = document.getElementById(id);
+      box.textContent = message;
+      box.style.display = "block";
+    });
+  }
+
+  function escapeHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function renderLeveledSheet(data) {
+    const worksheet = data.worksheet;
+    if (worksheet) {
+      const title = escapeHtml(worksheet.Title || "");
+      const story = escapeHtml(worksheet.Story || "").replace(/\n/g, "<br/>");
+      const image = worksheet.image
+        ? `<img alt="" src="${worksheet.image}" />`
+        : "";
+      const questions = [1, 2, 3, 4, 5].map((index) => {
+        const text = escapeHtml(worksheet[`Q${index}`] || "");
+        return `<div class="sheet-question">
+          <div><span class="sheet-question-number">${index}.</span> ${text}</div>
+          <div class="sheet-answer-line"></div>
+        </div>`;
+      }).join("");
+      return `
+        <table class="meta-table">
+          <tr>
+            <td><div class="meta-label">Name</div><div class="meta-line"></div></td>
+            <td><div class="meta-label">Date</div><div class="meta-line"></div></td>
+          </tr>
+        </table>
+        <h3>${title}</h3>
+        <div class="sheet-story-wrap">${image}${story}</div>
+        ${questions}
+      `;
+    }
+    const parts = [`<h3>${escapeHtml(data.title || "Worksheet")}</h3>`];
+    (data.blocks || []).forEach((block) => {
+      if (block.block_type === "image" && block.asset_base64) {
+        parts.push(
+          `<img alt="" src="data:${block.asset_mime || "image/png"};base64,${block.asset_base64}" />`
+        );
+        return;
+      }
+      const text = escapeHtml(block.text || "").replace(/\n/g, "<br/>");
+      if (block.block_type === "instructions") parts.push(`<p><em>${text}</em></p>`);
+      else if (block.block_type === "passage") parts.push(`<p>${text}</p>`);
+      else if (block.block_type === "question") {
+        parts.push(`<div class="sheet-question"><div>${text}</div><div class="sheet-answer-line"></div></div>`);
+      }
+      else if (block.block_type === "answer_choice") parts.push(`<p class="sheet-choice">${text}</p>`);
+      else if (text && block.block_type !== "ignore") parts.push(`<p>${text}</p>`);
+    });
+    return parts.join("");
+  }
+
+  function setSideMode(mode) {
+    const side = document.getElementById("worksheet-side");
+    side.classList.toggle("is-result", mode === "result");
+    document.getElementById("side-empty").classList.toggle("hidden", mode !== "empty");
+    document.getElementById("segment-review").classList.toggle("hidden", mode !== "review");
+    document.getElementById("worksheet-result").classList.toggle("hidden", mode !== "result");
+  }
+
+  function preparePdfDownload(pdfBase64, title) {
+    if (worksheetPdfUrl) URL.revokeObjectURL(worksheetPdfUrl);
+    worksheetPdfUrl = null;
+    const download = document.getElementById("worksheet-download");
+    if (!pdfBase64) {
+      download.removeAttribute("href");
+      return;
+    }
+    const binary = atob(pdfBase64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    worksheetPdfUrl = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+    download.href = worksheetPdfUrl;
+    const safeName = (title || "worksheet").replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "_") || "worksheet";
+    download.download = `${safeName}.pdf`;
+  }
+
+  document.getElementById("confirm-blocks").addEventListener("click", async () => {
+    hideWorksheetErrors();
+    document.getElementById("source-error").style.display = "none";
+    const targetGrade = document.getElementById("worksheet-grade").value;
+    if (!targetGrade) {
+      showWorksheetError("Choose a target grade level.");
+      document.getElementById("worksheet-grade").focus();
+      return;
+    }
+    if (worksheetKind === "test" && !document.getElementById("source-material").value.trim()) {
+      const sourceError = document.getElementById("source-error");
+      sourceError.textContent = "Tests need source material before you continue.";
+      sourceError.style.display = "block";
+      showWorksheetError("Tests need source material before you continue.");
+      return;
+    }
+    const mix = customMixOrNull();
+    if (mix === undefined) return;
+    const btn = document.getElementById("confirm-blocks");
+    const loading = document.getElementById("side-loading");
+    btn.disabled = true;
+    btn.textContent = "Leveling worksheet…";
+    loading.classList.remove("hidden");
+    try {
+      const response = await fetch("/modulate-worksheet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          blocks: detectedBlocks,
+          target_grade: targetGrade,
+          worksheet_kind: worksheetKind,
+          source_material: document.getElementById("source-material").value,
+          protected_terms: document.getElementById("worksheet-protected").value,
+          dok_mix: mix,
+          passage_type: document.getElementById("worksheet-type").value || null,
+          convert_questions: document.getElementById("worksheet-convert").checked,
+          title: ""
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not level that worksheet");
+      showWorksheetResult(data);
+    } catch (err) {
+      showWorksheetError(err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = confirmBtnDefault;
+      loading.classList.add("hidden");
+    }
+  });
+
+  document.getElementById("review-blocks-again").addEventListener("click", () => {
+    setSideMode("review");
+  });
+
+  function showWorksheetResult(data) {
+    setSideMode("result");
+    const status = document.getElementById("worksheet-status");
+    if (data.gate_passed) {
+      status.innerHTML = "";
+      status.style.display = "none";
+    } else {
+      status.style.display = "block";
+      status.innerHTML = `<span class="status-fail">Gate did not pass. You can still download the leveled worksheet.</span>`;
+    }
+    document.getElementById("worksheet-sheet").innerHTML = renderLeveledSheet(data);
+    preparePdfDownload(data.pdf_base64, data.title);
+    document.getElementById("worksheet-sheet").scrollTop = 0;
+  }
+</script>
 </body>
 </html>

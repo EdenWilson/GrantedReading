@@ -86,7 +86,7 @@ SCORER_LEVERS = """How the grade is measured — these are the only two numbers 
 
 A rewrite that still uses the rare topic words and long sentences will still measure near the original grade. A rewrite that swaps every slightly uncommon word and chops every sentence into six words will undershoot the band. Protected terms are the exception: leave those, and spend the difficulty budget on everything else."""
 
-AIM_FOR_BAND = """Land inside the target band. Going below the floor is as wrong as staying above the ceiling. Aim near the middle of the band.
+AIM_FOR_BAND = """Land inside the target band. Going below the floor is as wrong as staying above the ceiling. Aim near the middle of the band, not the edge — a draft sitting on the ceiling is a miss.
 
 Do not flatten claims into vague filler ("felt that way," "money problem") just to make a word easier."""
 
@@ -339,7 +339,7 @@ def build_rewrite_prompt(
         f"\n{REWRITE_OUTPUT_FORMAT}",
         f"\nTarget reading level: {band.display} "
         f"(estimated grade {band.low:.1f} to {band.high:.1f}). "
-        f"Aim near grade {band.center:.1f}.",
+        f"Aim near the middle, about grade {band.center:.1f}, not the edges.",
         direction,
     ]
 

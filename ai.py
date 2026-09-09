@@ -15,6 +15,8 @@ import ai_rewrite
 from reading_level import ReadingLevelError, correct_text, score_text
 from reading_level import bands as rl_bands
 from reading_level import config as rl_config
+from reading_level.blocks import BLOCK_TYPES, WorksheetBlock, segment_worksheet_bytes
+from reading_level import dok as rl_dok
 
 load_dotenv()
 
@@ -34,20 +36,22 @@ Rules:
 - Write the story at the student's READING LEVEL (not their grade level).
 - Incorporate the student's interests naturally into the story.
 - Keep the story engaging and age-appropriate for the student's grade.
-- Write exactly 5 comprehension questions using Who, What, When, Where, and Why.
+- Write exactly 5 ordinary comprehension questions about the story. Do not force a Who / What / When / Where / Why template — pick stems that fit the story.
 - Each question must end with a question mark and be answerable from the story.
 - The story must be one paragraph with no line breaks.
+- If a focus vocabulary word is given, use that exact word 3 to 5 times in the story. Weave it in naturally so the reader meets it in context. Do not replace it with a simpler synonym.
+- If a phonics pattern is given, include 3 to 5 different words that contain that exact letter pattern (for example, "tion" in station, mention, action). Use those words naturally so the reader practices the pattern.
 
 Respond with ONLY valid JSON (no markdown, no extra text) in this exact shape:
 {
   "title": "Story title",
   "story": "The full story text",
   "questions": {
-    "q1": "Who ...?",
-    "q2": "What ...?",
-    "q3": "When ...?",
-    "q4": "Where ...?",
-    "q5": "Why ...?"
+    "q1": "...?",
+    "q2": "...?",
+    "q3": "...?",
+    "q4": "...?",
+    "q5": "...?"
   }
 }"""
 
@@ -68,16 +72,319 @@ def ensure_ai_configured():
         raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
 
 
-def build_worksheet_prompt(grade, reading_level, interests):
+_PHONICS_CHUNK = re.compile(r"[A-Za-z]{2,12}")
+_STORY_WORD = re.compile(r"[A-Za-z][A-Za-z']*")
+
+
+def parse_focus_vocabulary(raw) -> list[str]:
+    """Teacher-chosen words to repeat in the story and leave untouched.
+
+    Commas separate terms. Caps at three so the story does not become a list.
+    """
+    if not raw:
+        return []
+    terms = []
+    seen = set()
+    for part in str(raw).replace(";", ",").split(","):
+        term = " ".join(part.split())
+        if not term or len(term) > 40:
+            continue
+        key = term.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        terms.append(term)
+        if len(terms) == 3:
+            break
+    return terms
+
+
+def parse_focus_phonics(raw) -> str:
+    """One letter pattern to practice, such as tion or ing.
+
+    Takes the first 2-12 letter chunk so a dropdown label like
+    'tion — action, station' still yields tion. Single letters are
+    rejected so a stray 'a' does not match every word.
+    """
+    if not raw:
+        return ""
+    match = _PHONICS_CHUNK.search(str(raw).strip())
+    return match.group(0).lower() if match else ""
+
+
+def words_matching_phonics(text, pattern) -> list[str]:
+    """Unique story words that contain the phonics chunk, first spelling kept."""
+    chunk = parse_focus_phonics(pattern)
+    if not chunk or not text:
+        return []
+    seen = set()
+    found = []
+    for word in _STORY_WORD.findall(text):
+        key = word.lower()
+        if chunk in key and key not in seen:
+            seen.add(key)
+            found.append(word)
+    return found
+
+
+def _unique_protected_terms(*groups) -> list[str]:
+    seen = set()
+    terms = []
+    for group in groups:
+        for term in group or []:
+            key = str(term).lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            terms.append(term)
+    return terms
+
+
+DOK_LEVELS = (1, 2, 3, 4)
+
+DOK_INSTRUCTIONS = {
+    1: (
+        "DOK 1 — Recall & Reproduction\n"
+        "The answer is explicitly stated in the text, typically in a single "
+        "sentence or phrase. The question asks the student to locate or recall "
+        "a fact, definition, or detail directly from the passage. Example "
+        'shape: "What did Leo ask Maya to do?"'
+    ),
+    2: (
+        "DOK 2 — Skill & Concept (Basic Reasoning)\n"
+        "The answer requires connecting two or more pieces of information from "
+        "the text, or recognizing a relationship — cause and effect, sequence, "
+        "comparison. Not stated in a single sentence, but a short, direct "
+        "logical step from what's stated. Example shape: \"Why did Leo take a "
+        "deep breath before walking over to Maya?\""
+    ),
+    3: (
+        "DOK 3 — Strategic Thinking (Inference & Analysis)\n"
+        "The answer requires synthesizing information from multiple parts of "
+        "the passage, drawing a conclusion the text supports but doesn't state "
+        "outright, or evaluating motivation or theme with textual "
+        "justification. The question should explicitly ask the student to "
+        "support their answer with evidence from the text. Example shape: "
+        '"What can you infer about how Leo felt about himself by the end of '
+        'the story? Support your answer with evidence from the text."'
+    ),
+    4: (
+        "DOK 4 — Extended Thinking\n"
+        "True DOK 4 usually means a multi-day project or work across several "
+        "texts. This is a single-passage worksheet, so write an "
+        "extended-response tier: each question should still require "
+        "synthesizing information from the passage, then ask for a longer, "
+        "more developed answer that connects the story to the student's own "
+        "experience or the real world. The connection must be grounded in "
+        "something the passage actually supports. Example shape: \"Have you "
+        "ever felt nervous about doing something brave? How does your "
+        "experience compare to Leo's?\""
+    ),
+}
+
+
+def parse_dok_level(raw) -> int:
+    """Worksheet-wide question demand. Defaults to recall (DOK 1)."""
+    if raw is None or raw == "":
+        return 1
+    if isinstance(raw, bool):
+        return 1
+    if isinstance(raw, int):
+        return raw if raw in DOK_LEVELS else 1
+    match = re.search(r"[1-4]", str(raw).strip())
+    return int(match.group(0)) if match else 1
+
+
+def build_questions_prompt(story, title, dok_level):
+    """Question-only prompt. The story is already written; do not rewrite it."""
+    level = parse_dok_level(dok_level)
+    heading = title.strip() if title else "Untitled"
+    return (
+        "You are writing reading comprehension questions for a special "
+        "education worksheet.\n\n"
+        f"Write exactly 5 questions about the story below at DOK level {level}.\n\n"
+        f"{DOK_INSTRUCTIONS[level]}\n\n"
+        "Rules:\n"
+        "- Write exactly 5 questions.\n"
+        "- Write ordinary comprehension questions. Do not force a Who / What / "
+        "When / Where / Why template. Choose whatever stems fit this DOK "
+        "level and this story.\n"
+        "- Each question must end with a question mark.\n"
+        "- Do not retell, rewrite, or continue the story.\n"
+        "- Do not require facts the story does not support.\n"
+        "- The story's reading level is already set. Do not make the questions "
+        "easier or harder by changing the story; only the questions change.\n\n"
+        f"Story title: {heading}\n\n"
+        f"Story:\n{story}\n\n"
+        "Respond with ONLY valid JSON (no markdown, no extra text) in this "
+        "exact shape:\n"
+        "{\n"
+        '  "questions": {\n'
+        '    "q1": "...?",\n'
+        '    "q2": "...?",\n'
+        '    "q3": "...?",\n'
+        '    "q4": "...?",\n'
+        '    "q5": "...?"\n'
+        "  }\n"
+        "}"
+    )
+
+
+def parse_questions_output(raw_text) -> dict:
+    """Accept a questions object, or a full worksheet JSON that contains one."""
+    if not raw_text or not str(raw_text).strip():
+        raise ValueError("Question generation returned empty output")
+    text = str(raw_text).strip()
+    text = re.sub(r"^```(?:json)?\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
+    questions = None
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict):
+            questions = data.get("questions")
+    except json.JSONDecodeError:
+        questions = None
+    if not isinstance(questions, dict):
+        questions = {}
+        for key in ("q1", "q2", "q3", "q4", "q5"):
+            match = re.search(rf'"{key}"\s*:\s*"((?:\\.|[^"\\])*)"', text, re.DOTALL)
+            if not match:
+                raise ValueError("Could not parse generated questions")
+            questions[key] = json.loads(f'"{match.group(1)}"')
+    cleaned = {}
+    for key in ("q1", "q2", "q3", "q4", "q5"):
+        stem = str(questions.get(key) or "").strip()
+        if not stem:
+            raise ValueError(f"Missing question: {key}")
+        if not stem.endswith("?"):
+            stem = stem.rstrip(".!") + "?"
+        cleaned[key] = stem
+    return cleaned
+
+
+def _log_dok_answerability(level: int):
+    """There is no span-recovery verifier for worksheet questions.
+
+    The only existing 'answerability' language is a line in the story prompt
+    and readability scoring of stems on the leveled-passage API. A verbatim
+    span check is not implemented, and would misfire on DOK 2–4. This log
+    makes the skip visible so it cannot look like a pass.
+    """
+    if level == 1:
+        _log_stage(
+            "dok_answerability",
+            dok_level=1,
+            check="prompt_only",
+            detail=(
+                "No span-recovery verifier exists. DOK 1 keeps the prompt "
+                "requirement that the answer is a locatable fact in the story."
+            ),
+        )
+        return
+    _log_stage(
+        "dok_answerability",
+        dok_level=level,
+        check="skipped",
+        detail=(
+            "Answerability is skipped for DOK 2+ in this experimental pass. "
+            "A span-style check would reject valid synthesis or inference."
+        ),
+    )
+
+
+def generate_worksheet_questions(story, title, dok_level):
+    """Second model call: questions only, at the requested DOK level."""
+    level = parse_dok_level(dok_level)
+    prompt = build_questions_prompt(story, title, level)
+    raw_text = generate_text(prompt)
+    questions = parse_questions_output(raw_text)
+    _log_dok_answerability(level)
+    return questions
+
+
+def build_worksheet_prompt(
+    grade, reading_level, interests, focus_vocabulary=None, focus_phonics=None
+):
     user_prompt = (
         f"I have a student who is in {grade} grade and reads at a "
         f"{reading_level} grade level. {interests}"
     )
+    terms = list(focus_vocabulary or [])
+    if terms:
+        quoted = ", ".join(f'"{term}"' for term in terms)
+        user_prompt += (
+            f" Focus vocabulary: {quoted}. Use each of these exact words "
+            f"or short phrases 3 to 5 times in the story. Keep the spelling "
+            f"exactly. Do not swap in an easier synonym."
+        )
+    phonics = parse_focus_phonics(focus_phonics)
+    if phonics:
+        user_prompt += (
+            f' Focus phonics: "{phonics}". Include 3 to 5 different words '
+            f"that contain this exact letter pattern. Use those words "
+            f"naturally so the reader practices the pattern. Do not avoid "
+            f"a word just because it contains the pattern."
+        )
     return f"{WORKSHEET_SYSTEM_PROMPT}\n\nUser request:\n{user_prompt}"
 
 
-def create_image_prompt(title, story, feedback=None):
-    prompt = f"A children's educational illustration titled '{title}'. Scene: {story[:200]}"
+def _classroom_grade_label(grade) -> str | None:
+    """Turn a form value like 'K' or '9' into a short classroom label."""
+    if grade is None:
+        return None
+    raw = str(grade).strip()
+    if not raw:
+        return None
+    lowered = raw.lower()
+    if lowered in ("k", "kg", "kindergarten"):
+        return "kindergarten"
+    match = re.match(r"^(\d+)", lowered)
+    if not match:
+        return raw
+    number = int(match.group(1))
+    if number == 1:
+        ordinal = "1st"
+    elif number == 2:
+        ordinal = "2nd"
+    elif number == 3:
+        ordinal = "3rd"
+    else:
+        ordinal = f"{number}th"
+    return f"{ordinal} grade"
+
+
+def _typical_student_age(grade) -> str | None:
+    if grade is None:
+        return None
+    raw = str(grade).strip().lower()
+    if raw in ("k", "kg", "kindergarten"):
+        return "5-6 year olds"
+    match = re.match(r"^(\d+)", raw)
+    if not match:
+        return None
+    number = int(match.group(1))
+    younger = number + 5
+    return f"{younger}-{younger + 1} year olds"
+
+
+def create_image_prompt(title, story, feedback=None, grade=None):
+    """Illustration brief. Age the characters to the student's classroom grade,
+    not their reading level — a 9th grader who reads at grade 3 still looks 14.
+    """
+    classroom = _classroom_grade_label(grade)
+    ages = _typical_student_age(grade)
+    if classroom and ages:
+        prompt = (
+            f"An educational illustration for a {classroom} classroom, "
+            f"titled '{title}'. Characters should look like typical {classroom} "
+            f"students ({ages}): age-appropriate faces, clothing, and setting. "
+            f"Do not depict younger children unless the story requires it. "
+            f"Scene: {story[:200]}"
+        )
+    else:
+        prompt = (
+            f"An educational illustration titled '{title}'. Scene: {story[:200]}"
+        )
     if feedback:
         prompt += f" Additional instructions: {feedback.strip()}"
     return prompt
@@ -102,11 +409,11 @@ def normalize_model_output(data):
     return {
         "Title": data["title"],
         "Story": data["story"],
-        "Who": data["questions"]["q1"],
-        "What": data["questions"]["q2"],
-        "When": data["questions"]["q3"],
-        "Where": data["questions"]["q4"],
-        "Why": data["questions"]["q5"],
+        "Q1": data["questions"]["q1"],
+        "Q2": data["questions"]["q2"],
+        "Q3": data["questions"]["q3"],
+        "Q4": data["questions"]["q4"],
+        "Q5": data["questions"]["q5"],
     }
 
 
@@ -265,26 +572,45 @@ def _parse_worksheet_text(output_text):
     }
 
 
-def generate_worksheet_content(grade, reading_level, interests):
-    prompt = build_worksheet_prompt(grade, reading_level, interests)
+def generate_worksheet_content(
+    grade, reading_level, interests, focus_vocabulary=None, focus_phonics=None
+):
+    prompt = build_worksheet_prompt(
+        grade,
+        reading_level,
+        interests,
+        focus_vocabulary=focus_vocabulary,
+        focus_phonics=focus_phonics,
+    )
     raw_text = generate_text(prompt)
     model_data = parse_worksheet_output(raw_text)
     validate_structure(model_data)
     return model_data, raw_text
 
 
-def build_pdf_bytes(worksheet_content, image_feedback=None, existing_image_base64=None):
+def build_pdf_bytes(
+    worksheet_content,
+    image_feedback=None,
+    existing_image_base64=None,
+    grade=None,
+):
     pdf_json = normalize_model_output(worksheet_content)
+    student_grade = grade if grade is not None else worksheet_content.get("grade")
 
     if image_feedback:
         image_prompt = create_image_prompt(
-            pdf_json["Title"], pdf_json["Story"], feedback=image_feedback
+            pdf_json["Title"],
+            pdf_json["Story"],
+            feedback=image_feedback,
+            grade=student_grade,
         )
         image_base64 = generate_image(image_prompt)
     elif existing_image_base64:
         image_base64 = existing_image_base64
     else:
-        image_prompt = create_image_prompt(pdf_json["Title"], pdf_json["Story"])
+        image_prompt = create_image_prompt(
+            pdf_json["Title"], pdf_json["Story"], grade=student_grade
+        )
         image_base64 = generate_image(image_prompt)
 
     pdf_json["image"] = f"data:image/jpeg;base64,{image_base64}"
@@ -314,16 +640,41 @@ def _leveling_report(original_story, first_score, outcome):
     }
 
 
-def generate_full_worksheet(grade, reading_level, interests):
+def generate_full_worksheet(
+    grade,
+    reading_level,
+    interests,
+    focus_vocabulary=None,
+    focus_phonics=None,
+    dok_level=None,
+):
     """Generate a worksheet, then run the reading-level pipeline on the story.
 
     The first model draft is kept so the review panel can show what the
     pipeline changed. The PDF uses the leveled story. A leveling miss does
     not abort the worksheet -- the closest result still ships, flagged.
+    Focus vocabulary is written into the draft 3-5 times and passed as
+    protected terms so the leveler cannot swap it for an easier word.
+    A phonics pattern is asked for in 3-5 different words; those matching
+    words are also protected so the leveler cannot strip the pattern.
+    Questions are a second, independent call at `dok_level` so changing
+    question demand cannot change the story or the leveler.
     """
-    model_data, raw_text = generate_worksheet_content(grade, reading_level, interests)
+    terms = parse_focus_vocabulary(focus_vocabulary)
+    phonics = parse_focus_phonics(focus_phonics)
+    model_data, raw_text = generate_worksheet_content(
+        grade,
+        reading_level,
+        interests,
+        focus_vocabulary=terms,
+        focus_phonics=phonics,
+    )
+    model_data["grade"] = grade
     original_story = model_data["story"]
     first_score = score_text(original_story)
+    protected = _unique_protected_terms(
+        terms, words_matching_phonics(original_story, phonics)
+    )
 
     try:
         outcome = correct_with_rewrite(
@@ -331,6 +682,7 @@ def generate_full_worksheet(grade, reading_level, interests):
             reading_level,
             allow_rewrite=True,
             passage_type=rl_config.PASSAGE_TYPE_NARRATIVE,
+            protected_terms=protected,
         )
         model_data["story"] = outcome.text
         leveling = _leveling_report(original_story, first_score, outcome)
@@ -361,7 +713,14 @@ def generate_full_worksheet(grade, reading_level, interests):
             "llm_rewrite_applied": False,
         }
 
-    pdf_bytes, image_base64 = build_pdf_bytes(model_data)
+    model_data["questions"] = generate_worksheet_questions(
+        model_data["story"],
+        model_data.get("title", ""),
+        dok_level,
+    )
+    model_data["dok_level"] = parse_dok_level(dok_level)
+
+    pdf_bytes, image_base64 = build_pdf_bytes(model_data, grade=grade)
     return model_data, pdf_bytes, image_base64, raw_text, leveling
 
 
@@ -542,7 +901,7 @@ def correct_with_rewrite(
     if not allow_rewrite or result.gate_passed:
         return outcome
 
-    return ai_rewrite.escalate_to_rewrite(
+    rewritten = ai_rewrite.escalate_to_rewrite(
         result,
         target_grade,
         generate=generate_text,
@@ -550,6 +909,33 @@ def correct_with_rewrite(
         passage_type=passage_type,
         keep_closest=True,
     )
+    return _polish_rewrite_with_repair(rewritten, target_grade, protected_terms)
+
+
+def _polish_rewrite_with_repair(outcome, target_grade, protected_terms):
+    """Run Operators A/B on a rewrite that is still above the band.
+
+    A/B only simplify, so a below-band draft is left alone. A near-miss
+    like 3.66 on a 3.5 ceiling can still be nicked into band.
+    """
+    if outcome.gate_passed or not outcome.llm_rewrite_applied:
+        return outcome
+    score = outcome.final_score
+    band = outcome.target_band
+    if score is None or band is None or score.estimated_grade <= band.high:
+        return outcome
+    polished = correct_text(
+        outcome.text, target_grade, protected_terms=protected_terms
+    )
+    if polished.gate_passed or (
+        polished.final_score.estimated_grade < score.estimated_grade
+    ):
+        outcome.text = polished.text
+        outcome.final_score = polished.final_score
+        outcome.gate_passed = polished.gate_passed
+        if polished.gate_passed:
+            outcome.failure_reason = None
+    return outcome
 
 
 def generate_leveled_passage(
@@ -673,6 +1059,354 @@ def generate_leveled_passage(
         score=last_result.final_score if last_result else None,
         band=band,
     )
+
+
+_BLOCK_CLASSIFY_PROMPT = """You assign a type to one excerpt from a student worksheet.
+Do not rewrite, summarize, or add text. Classify only.
+
+Allowed types: passage, instructions, question, answer_choice, ignore
+
+Use ignore for labels and fields the student fills in (Name, Date, Score)
+and for anything that should not be rewritten.
+
+Excerpt:
+{text}
+
+Respond with ONLY valid JSON: {{"block_type": "passage"}}"""
+
+
+def classify_unclassified_blocks(blocks, *, generate=None):
+    """Kept for callers; ignore/image blocks are never sent to the model."""
+    generate = generate or generate_text
+    updated = []
+    for block in blocks:
+        if block.block_type != "ignore" or block.confidence == "high":
+            updated.append(block)
+            continue
+        if block.asset_base64:
+            updated.append(block)
+            continue
+        raw = generate(_BLOCK_CLASSIFY_PROMPT.format(text=block.text))
+        assigned = _parse_block_type(raw)
+        updated.append(
+            WorksheetBlock(
+                block_id=block.block_id,
+                block_type=assigned,
+                text=block.text,
+                source_position=block.source_position,
+                confidence="low",
+                asset_base64=block.asset_base64,
+                asset_mime=block.asset_mime,
+            )
+        )
+    return updated
+
+
+def _parse_block_type(raw_text) -> str:
+    text = str(raw_text or "").strip()
+    text = re.sub(r"^```(?:json)?\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
+    try:
+        data = json.loads(text)
+        value = str(data.get("block_type") or "").strip()
+    except (json.JSONDecodeError, AttributeError):
+        value = ""
+        match = re.search(
+            r"passage|instructions|question|answer_choice|ignore",
+            text,
+        )
+        if match:
+            value = match.group(0)
+    if value == "unclassified":
+        value = "ignore"
+    return value if value in BLOCK_TYPES else "ignore"
+
+
+def segment_worksheet(data: bytes, filename: str, *, generate=None, use_llm=False):
+    """Split a worksheet. Leftover labels default to ignore; the teacher confirms.
+
+    `use_llm` is off by default: confirmation is the checkpoint, not a second
+    guess from the model. Image blocks always pass through unchanged.
+    """
+    blocks = segment_worksheet_bytes(data, filename)
+    if use_llm and any(
+        block.block_type == "ignore" and block.confidence == "low"
+        for block in blocks
+    ):
+        blocks = classify_unclassified_blocks(blocks, generate=generate)
+    return blocks
+
+
+def build_convert_question_prompt(
+    stem, target_dok, passage, source_material=None, protected_terms=None
+):
+    """Rewrite an existing stem to a target DOK. Reuses generation definitions."""
+    level = parse_dok_level(target_dok)
+    protected = ", ".join(f'"{term}"' for term in (protected_terms or []) if term)
+    source = (source_material or "").strip()
+    return (
+        "You are converting an existing reading-comprehension question to a "
+        f"different Depth of Knowledge level. Target: DOK {level}.\n\n"
+        f"{DOK_INSTRUCTIONS[level]}\n\n"
+        "Keep the same underlying fact or idea as the original question. "
+        "Do not invent a new topic. Do not rewrite the passage. "
+        "Write ordinary comprehension questions — do not force a "
+        "Who / What / When / Where / Why template.\n"
+        "Ground the question in the passage"
+        + (" and the source material" if source else "")
+        + ". Do not require facts that neither one supports.\n"
+        + (f"Protected terms, keep verbatim: {protected}\n" if protected else "")
+        + f"\nOriginal question:\n{stem}\n\nPassage:\n{passage}\n"
+        + (f"\nSource material:\n{source}\n" if source else "")
+        + "\nRespond with ONLY valid JSON: {\"question\": \"...?\"}"
+    )
+
+
+def convert_question_to_dok(
+    stem,
+    target_dok,
+    passage,
+    source_material=None,
+    protected_terms=None,
+    *,
+    generate=None,
+):
+    generate = generate or generate_text
+    prompt = build_convert_question_prompt(
+        stem, target_dok, passage, source_material, protected_terms
+    )
+    raw = generate(prompt)
+    text = str(raw or "").strip()
+    text = re.sub(r"^```(?:json)?\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
+    try:
+        data = json.loads(text)
+        question = str(data.get("question") or "").strip()
+    except json.JSONDecodeError:
+        question = ""
+        match = re.search(r'"question"\s*:\s*"((?:\\.|[^"\\])*)"', text)
+        if match:
+            question = json.loads(f'"{match.group(1)}"').strip()
+    if not question:
+        raise ValueError("Question conversion returned empty output")
+    if not question.endswith("?"):
+        question = question.rstrip(".!") + "?"
+    return question
+
+
+def modulate_worksheet(
+    blocks,
+    target_grade,
+    *,
+    source_material="",
+    worksheet_kind="practice",
+    dok_mix=None,
+    protected_terms=None,
+    allow_rewrite=True,
+    passage_type=None,
+    convert_questions=False,
+    generate=None,
+    title="Worksheet",
+):
+    """Level passages and choices. Questions stay put unless asked.
+
+    Convert is off by default: the teacher keeps the original stems.
+    When `convert_questions` is on, stems in the wrong DOK bucket are
+    rewritten toward the mix (convert, not replace).
+    """
+    generate = generate or generate_text
+    protected = list(protected_terms or [])
+    kind = (worksheet_kind or "practice").strip().lower()
+    required_source = kind == "test"
+    source_tokens = rl_dok.check_source_material(
+        source_material, required=required_source
+    )
+
+    working = []
+    for block in blocks:
+        item = block if isinstance(block, WorksheetBlock) else WorksheetBlock.from_dict(block)
+        if item.block_type == "image" and item.asset_base64:
+            working.append(item)
+        elif item.text:
+            working.append(item)
+
+    passage_report = []
+    leveled = []
+    for block in working:
+        if block.block_type == "passage":
+            outcome = correct_with_rewrite(
+                block.text,
+                target_grade,
+                protected_terms=protected,
+                allow_rewrite=allow_rewrite,
+                passage_type=passage_type,
+            )
+            leveled.append(
+                WorksheetBlock(
+                    block_id=block.block_id,
+                    block_type=block.block_type,
+                    text=outcome.text,
+                    source_position=block.source_position,
+                    confidence=block.confidence,
+                )
+            )
+            passage_report.append({
+                "block_id": block.block_id,
+                "initial_grade": round(outcome.correction.initial_score.estimated_grade, 2),
+                "final_grade": round(outcome.final_score.estimated_grade, 2),
+                "in_band": outcome.gate_passed,
+                "target_band": outcome.target_band.display,
+                "llm_rewrite_applied": outcome.llm_rewrite_applied,
+            })
+        elif block.block_type == "answer_choice":
+            result = correct_text(
+                block.text, target_grade, protected_terms=protected
+            )
+            _, label_text = rl_dok.choice_label_and_text(block.text)
+            leveled_body = result.text.strip()
+            label, _ = rl_dok.choice_label_and_text(block.text)
+            if label and not re.match(r"^[A-D][.)]", leveled_body):
+                leveled_body = f"{label}. {leveled_body}"
+            elif not label:
+                leveled_body = leveled_body or label_text
+            leveled.append(
+                WorksheetBlock(
+                    block_id=block.block_id,
+                    block_type=block.block_type,
+                    text=leveled_body,
+                    source_position=block.source_position,
+                    confidence=block.confidence,
+                )
+            )
+        else:
+            leveled.append(block)
+
+    passage_text = " ".join(
+        block.text for block in leveled if block.block_type == "passage"
+    )
+    corpora = (passage_text, source_material or "")
+    items = rl_dok.group_question_items(leveled)
+    before = rl_dok.bucket_questions(items, *corpora)
+    percents = dok_mix or rl_dok.default_dok_mix(target_grade)
+    target_counts = rl_dok.mix_to_counts(len(items), percents)
+    targets = rl_dok.target_dok_for_items(before, target_counts)
+
+    converted_ids = []
+    by_id = {block.block_id: block for block in leveled}
+    if convert_questions:
+        for item, diagnostic, target in zip(items, before, targets):
+            if diagnostic.estimated_dok == target:
+                continue
+            try:
+                new_stem = convert_question_to_dok(
+                    item.question.text,
+                    target,
+                    passage_text,
+                    source_material=source_material,
+                    protected_terms=protected,
+                    generate=generate,
+                )
+            except Exception:
+                logger.exception(
+                    "question_convert_failed", extra={"block_id": item.question.block_id}
+                )
+                continue
+            old = item.question
+            by_id[old.block_id] = WorksheetBlock(
+                block_id=old.block_id,
+                block_type=old.block_type,
+                text=new_stem,
+                source_position=old.source_position,
+                confidence=old.confidence,
+            )
+            converted_ids.append(old.block_id)
+        leveled = [by_id[block.block_id] for block in leveled]
+
+    items = rl_dok.group_question_items(leveled)
+    after = rl_dok.bucket_questions(items, *corpora)
+    after_levels = [item.estimated_dok for item in after]
+    achieved = rl_dok.mix_from_levels(after_levels)
+    _log_stage(
+        "dok_mix",
+        source_tokens=source_tokens,
+        before={row.estimated_dok: None for row in before},
+        before_counts=rl_dok.mix_from_levels([row.estimated_dok for row in before]),
+        target_counts=target_counts,
+        achieved_counts=achieved,
+        converted_block_ids=converted_ids,
+        convert_questions=convert_questions,
+    )
+
+    gate_failures = []
+    for row in passage_report:
+        if not row["in_band"]:
+            gate_failures.append({
+                "check": "passage_band",
+                "block_id": row["block_id"],
+                "detail": (
+                    f"Passage measured grade {row['final_grade']}, "
+                    f"outside {row['target_band']}."
+                ),
+            })
+
+    lowered_passages = passage_text.lower()
+    for term in protected:
+        if term.lower() not in lowered_passages:
+            gate_failures.append({
+                "check": "protected_terms",
+                "block_id": None,
+                "detail": f'Protected term "{term}" is missing from the passage.',
+            })
+
+    if convert_questions and not rl_dok.mix_within_tolerance(
+        achieved, target_counts, len(items)
+    ):
+        gate_failures.append({
+            "check": "dok_mix",
+            "block_id": None,
+            "detail": f"DOK mix {achieved} is outside tolerance of {target_counts}.",
+        })
+
+    if convert_questions:
+        for item, diagnostic, target in zip(items, after, targets):
+            if diagnostic.unanswerable and target <= 2:
+                gate_failures.append({
+                    "check": "answerability",
+                    "block_id": item.question.block_id,
+                    "detail": "No locatable overlap with the passage or source material.",
+                })
+            if item.choices:
+                for problem in rl_dok.check_distractors(item.choices, *corpora):
+                    gate_failures.append({
+                        "check": "distractors",
+                        "block_id": item.question.block_id,
+                        "detail": problem,
+                    })
+
+    worksheet = file.blocks_to_worksheet_data(title, leveled)
+    pdf_bytes = file.generate_blocks_pdf(title, leveled)
+    return {
+        "title": (worksheet or {}).get("Title") or title,
+        "worksheet": worksheet,
+        "blocks": [block.to_dict() for block in leveled],
+        "pdf_base64": base64.b64encode(pdf_bytes).decode(),
+        "source_tokens": source_tokens,
+        "passages": passage_report,
+        "dok": {
+            "before": [row.to_dict() for row in before],
+            "after": [row.to_dict() for row in after],
+            "before_counts": rl_dok.mix_from_levels([row.estimated_dok for row in before]),
+            "target_counts": target_counts,
+            "achieved_counts": achieved,
+            "converted_block_ids": converted_ids,
+            "percents": percents,
+        },
+        "protected_terms_preserved": [
+            term for term in protected if term.lower() in lowered_passages
+        ],
+        "gate_passed": not gate_failures,
+        "gate_failures": gate_failures,
+    }
 
 
 if __name__ == "__main__":

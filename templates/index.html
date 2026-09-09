@@ -163,7 +163,7 @@
   .grade-btn:hover { border-color: var(--green); color: var(--green); }
   .grade-btn.selected { background: var(--green); border-color: var(--green); color: #fff; }
 
-  select, textarea {
+  select, textarea, input[type="text"] {
     width: 100%; font-family: var(--font-body);
     font-size: 14px; color: var(--ink); background: var(--white);
     border: 1.5px solid var(--border); border-radius: var(--radius);
@@ -177,8 +177,39 @@
     padding-right: 32px; cursor: pointer;
   }
 
-  select:focus, textarea:focus { border-color: var(--green); }
+  select:focus, textarea:focus, input[type="text"]:focus { border-color: var(--green); }
   textarea { min-height: 100px; resize: vertical; line-height: 1.5; }
+
+  .field-hint {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  .combo { position: relative; }
+  .combo-input-wrap { position: relative; }
+  .combo-input-wrap input { padding-right: 36px; }
+  .combo-chevron {
+    position: absolute; right: 12px; top: 50%;
+    transform: translateY(-50%); pointer-events: none; color: var(--muted);
+  }
+  .combo-list {
+    position: absolute; z-index: 30; left: 0; right: 0;
+    top: calc(100% + 4px); max-height: 220px; overflow-y: auto;
+    background: var(--white); border: 1.5px solid var(--border);
+    border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    list-style: none; padding: 4px 0; margin: 0;
+  }
+  .combo-list[hidden] { display: none; }
+  .combo-option {
+    display: flex; flex-direction: column; gap: 1px;
+    padding: 8px 12px; cursor: pointer; font-size: 13px;
+  }
+  .combo-option:hover, .combo-option.active { background: var(--green-light); }
+  .combo-option-value { font-family: var(--font); font-weight: 800; color: var(--ink); }
+  .combo-option-examples { font-size: 12px; color: var(--muted); }
+  .combo-empty { padding: 8px 12px; font-size: 13px; color: var(--muted); }
 
   .divider { border: none; border-top: 1px solid var(--border); margin: 4px 0 20px; }
 
@@ -233,57 +264,6 @@
   }
 
   .review-ready { display: none; }
-
-  .level-compare {
-    display: none;
-    flex-direction: column;
-    gap: 10px;
-    background: var(--white);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 16px;
-    margin-bottom: 16px;
-  }
-  .level-compare-title {
-    font-family: var(--font);
-    font-size: 14px;
-    font-weight: 800;
-  }
-  .level-note {
-    font-size: 13px;
-    line-height: 1.5;
-    color: var(--muted);
-  }
-  .level-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  .level-chip {
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--muted);
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 6px 12px;
-  }
-  .level-chip strong { color: var(--ink); }
-  .level-chip.highlight { background: var(--green-light); border-color: #c8ebc6; color: var(--green-dark); }
-  .level-chip.highlight strong { color: var(--green-dark); }
-  .level-draft label {
-    display: block;
-    font-size: 12px;
-    font-weight: 800;
-    margin-bottom: 6px;
-  }
-  .level-draft-text {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px;
-    font-size: 13px;
-    line-height: 1.55;
-    max-height: 180px;
-    overflow-y: auto;
-    white-space: pre-wrap;
-  }
 
   .review-ready p {
     font-size: 14px;
@@ -480,8 +460,37 @@
         </div>
 
         <div class="field">
+          <label class="field-label" for="dok-level">Question DOK level</label>
+          <select id="dok-level">
+            <option value="1">DOK 1 — Recall: the answer is stated in the text</option>
+            <option value="2">DOK 2 — Basic reasoning: connect two or more details</option>
+            <option value="3">DOK 3 — Inference: draw a conclusion and cite evidence</option>
+            <option value="4">DOK 4 — Extended response: connect the story to real life</option>
+          </select>
+          <p class="field-hint">How hard the questions think, not how hard the story reads. A simpler passage can still carry a harder question.</p>
+        </div>
+
+        <div class="field">
           <label class="field-label">Student's interests</label>
           <textarea id="interests" placeholder="e.g. loves dinosaurs, soccer, and cooking with her grandmother…"></textarea>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Focus vocabulary (optional)</label>
+          <input id="focus-vocabulary" type="text" placeholder="e.g. resilient" autocomplete="off" />
+          <p class="field-hint">This word will appear 3–5 times in the story. It will not be simplified, even if it is hard. Separate extra words with commas.</p>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="focus-phonics">Focus phonics (optional)</label>
+          <div class="combo" id="phonics-combo">
+            <div class="combo-input-wrap">
+              <input id="focus-phonics" type="text" placeholder="e.g. tion or ing" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="phonics-list" aria-autocomplete="list" />
+              <svg class="combo-chevron" width="12" height="8" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1L6 6L11 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </div>
+            <ul class="combo-list" id="phonics-list" role="listbox" hidden></ul>
+          </div>
+          <p class="field-hint">Pick a pattern or type your own. The story will use 3–5 words that contain it, and the leveler will not swap those words away.</p>
         </div>
 
         <hr class="divider" />
@@ -540,16 +549,6 @@
         <p>After you generate, your PDF appears in the center. You can choose to edit the story, questions, or illustration from here.</p>
       </div>
 
-      <div class="level-compare" id="level-compare">
-        <div class="level-compare-title">Reading level</div>
-        <div class="level-chips" id="level-chips"></div>
-        <p class="level-note" id="level-note"></p>
-        <div class="level-draft" id="level-draft-block" style="display:none">
-          <label>First AI draft (before leveling)</label>
-          <div class="level-draft-text" id="level-draft-text"></div>
-        </div>
-      </div>
-
       <div class="review-ready" id="review-ready">
         <p>Your worksheet is ready. Happy with the PDF? Download or print from the preview. Need changes?</p>
         <button class="btn-edit-worksheet" type="button" onclick="openEditPanel()">Edit worksheet</button>
@@ -568,23 +567,23 @@
           <textarea id="review-story"></textarea>
         </div>
         <div class="review-field">
-          <label for="review-who">Who</label>
+          <label for="review-who">Question 1</label>
           <input id="review-who" type="text" />
         </div>
         <div class="review-field">
-          <label for="review-what">What</label>
+          <label for="review-what">Question 2</label>
           <input id="review-what" type="text" />
         </div>
         <div class="review-field">
-          <label for="review-when">When</label>
+          <label for="review-when">Question 3</label>
           <input id="review-when" type="text" />
         </div>
         <div class="review-field">
-          <label for="review-where">Where</label>
+          <label for="review-where">Question 4</label>
           <input id="review-where" type="text" />
         </div>
         <div class="review-field">
-          <label for="review-why">Why</label>
+          <label for="review-why">Question 5</label>
           <input id="review-why" type="text" />
         </div>
 
@@ -610,10 +609,176 @@
   let currentImageBase64 = null;
   let reviewContent = null;
 
+  const PHONICS_OPTIONS = [
+    { value: "sh", examples: "ship, fish, shed" },
+    { value: "ch", examples: "chat, lunch, chick" },
+    { value: "th", examples: "this, path, three" },
+    { value: "wh", examples: "when, whale, which" },
+    { value: "ph", examples: "phone, graph, photo" },
+    { value: "ck", examples: "back, duck, sock" },
+    { value: "kn", examples: "know, knee, knife" },
+    { value: "wr", examples: "write, wrap, wrong" },
+    { value: "qu", examples: "quick, queen, quiet" },
+    { value: "ng", examples: "sing, long, ring" },
+    { value: "nk", examples: "sink, think, bank" },
+    { value: "ar", examples: "car, park, start" },
+    { value: "er", examples: "her, water, after" },
+    { value: "ir", examples: "bird, first, girl" },
+    { value: "or", examples: "for, storm, corn" },
+    { value: "ur", examples: "turn, burn, hurt" },
+    { value: "ai", examples: "rain, wait, train" },
+    { value: "ay", examples: "play, day, stay" },
+    { value: "ee", examples: "see, tree, green" },
+    { value: "ea", examples: "eat, beach, read" },
+    { value: "oa", examples: "boat, road, coat" },
+    { value: "ow", examples: "snow, grow, down" },
+    { value: "oo", examples: "moon, book, food" },
+    { value: "ou", examples: "out, cloud, found" },
+    { value: "oi", examples: "coin, boil, point" },
+    { value: "oy", examples: "boy, toy, enjoy" },
+    { value: "au", examples: "author, pause, caught" },
+    { value: "aw", examples: "saw, draw, straw" },
+    { value: "ew", examples: "new, grew, few" },
+    { value: "igh", examples: "night, light, high" },
+    { value: "ing", examples: "running, jumping, looking" },
+    { value: "ed", examples: "jumped, wanted, played" },
+    { value: "ly", examples: "quickly, slowly, happily" },
+    { value: "tion", examples: "action, station, mention" },
+    { value: "sion", examples: "mission, vision, tension" },
+    { value: "ness", examples: "kindness, darkness, happiness" },
+    { value: "ment", examples: "moment, payment, excitement" },
+    { value: "ful", examples: "helpful, careful, wonderful" },
+    { value: "less", examples: "helpless, fearless, endless" },
+    { value: "able", examples: "capable, readable, enjoyable" },
+    { value: "ight", examples: "night, light, right" },
+    { value: "ough", examples: "though, enough, through" },
+    { value: "tch", examples: "catch, watch, stretch" },
+    { value: "dge", examples: "bridge, badge, edge" },
+    { value: "un", examples: "unhappy, unlock, unfair" },
+    { value: "re", examples: "return, replay, reread" },
+    { value: "pre", examples: "prepare, preview, preschool" },
+    { value: "dis", examples: "disagree, disappear, discover" }
+  ];
+
+  function initPhonicsCombo() {
+    const input = document.getElementById("focus-phonics");
+    const list = document.getElementById("phonics-list");
+    let activeIndex = -1;
+    let visible = [];
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function matches(option, query) {
+      const hay = `${option.value} ${option.examples}`.toLowerCase();
+      return hay.includes(query);
+    }
+
+    function render(query) {
+      const q = (query || "").trim().toLowerCase();
+      visible = q ? PHONICS_OPTIONS.filter(opt => matches(opt, q)) : PHONICS_OPTIONS.slice();
+      activeIndex = visible.length ? 0 : -1;
+      if (!visible.length) {
+        const typed = (query || "").trim();
+        list.innerHTML = typed
+          ? `<li class="combo-empty">Use “${escapeHtml(typed)}”</li>`
+          : `<li class="combo-empty">No matching patterns</li>`;
+        return;
+      }
+      list.innerHTML = visible.map((opt, i) => (
+        `<li class="combo-option${i === activeIndex ? " active" : ""}" role="option" data-value="${escapeHtml(opt.value)}">` +
+        `<span class="combo-option-value">${escapeHtml(opt.value)}</span>` +
+        `<span class="combo-option-examples">${escapeHtml(opt.examples)}</span>` +
+        `</li>`
+      )).join("");
+    }
+
+    function openList() {
+      render(input.value);
+      list.hidden = false;
+      input.setAttribute("aria-expanded", "true");
+    }
+
+    function closeList() {
+      list.hidden = true;
+      input.setAttribute("aria-expanded", "false");
+      activeIndex = -1;
+    }
+
+    function selectOption(value) {
+      input.value = value;
+      closeList();
+    }
+
+    function markActive() {
+      list.querySelectorAll(".combo-option").forEach((el, i) => {
+        el.classList.toggle("active", i === activeIndex);
+        if (i === activeIndex) el.scrollIntoView({ block: "nearest" });
+      });
+    }
+
+    input.addEventListener("focus", openList);
+    input.addEventListener("click", openList);
+    input.addEventListener("input", () => {
+      openList();
+    });
+    input.addEventListener("keydown", (event) => {
+      if (list.hidden && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+        openList();
+        event.preventDefault();
+        return;
+      }
+      if (list.hidden) return;
+      if (event.key === "ArrowDown") {
+        if (visible.length) {
+          activeIndex = (activeIndex + 1) % visible.length;
+          markActive();
+        }
+        event.preventDefault();
+      } else if (event.key === "ArrowUp") {
+        if (visible.length) {
+          activeIndex = (activeIndex - 1 + visible.length) % visible.length;
+          markActive();
+        }
+        event.preventDefault();
+      } else if (event.key === "Enter") {
+        if (activeIndex >= 0 && visible[activeIndex]) {
+          selectOption(visible[activeIndex].value);
+          event.preventDefault();
+        } else {
+          closeList();
+        }
+      } else if (event.key === "Escape") {
+        closeList();
+        event.preventDefault();
+      }
+    });
+
+    list.addEventListener("mousedown", (event) => {
+      const option = event.target.closest(".combo-option");
+      if (option) {
+        selectOption(option.dataset.value);
+        event.preventDefault();
+      }
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest("#phonics-combo")) closeList();
+    });
+  }
+
+  initPhonicsCombo();
+
   function buildWorksheetPayload() {
     return {
       title: document.getElementById("review-title").value.trim(),
       story: document.getElementById("review-story").value.trim(),
+      grade: selectedGrade,
       questions: {
         q1: document.getElementById("review-who").value.trim(),
         q2: document.getElementById("review-what").value.trim(),
@@ -659,7 +824,6 @@
 
     currentImageBase64 = data.image_base64 || null;
     populateReviewPanel(reviewContent);
-    renderLevelCompare(data.reading_level);
     showPdfFromBase64(data.pdf_base64, reviewContent.title);
 
     const editOpen = document.getElementById("review-form").style.display === "flex";
@@ -714,6 +878,9 @@
   async function generateWorksheet() {
     const readingLevel = document.getElementById("reading-level").value;
     const interests    = document.getElementById("interests").value.trim();
+    const focusVocabulary = document.getElementById("focus-vocabulary").value.trim();
+    const focusPhonics = document.getElementById("focus-phonics").value.trim();
+    const dokLevel = document.getElementById("dok-level").value;
     const errorBox     = document.getElementById("error-box");
     errorBox.style.display = "none";
 
@@ -737,7 +904,14 @@
       const response = await fetch("/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ grade: selectedGrade, reading_level: readingLevel, interests })
+        body: JSON.stringify({
+          grade: selectedGrade,
+          reading_level: readingLevel,
+          interests,
+          focus_vocabulary: focusVocabulary,
+          focus_phonics: focusPhonics,
+          dok_level: dokLevel
+        })
       });
 
       clearTimeout(t2); clearTimeout(t3); clearTimeout(t4);
@@ -759,55 +933,6 @@
 
     btn.disabled = false;
     btn.innerHTML = "Generate";
-  }
-
-  function renderLevelCompare(level) {
-    const card = document.getElementById("level-compare");
-    if (!level || !level.first_draft || !level.final) {
-      card.style.display = "none";
-      return;
-    }
-
-    const first = level.first_draft;
-    const final = level.final;
-    const chips = document.getElementById("level-chips");
-    chips.innerHTML = "";
-
-    const items = [
-      { label: "First draft", value: `Grade ${first.estimated_grade}` },
-      { label: "Final", value: `Grade ${final.estimated_grade}`, highlight: true },
-      { label: "Target", value: level.target_band },
-      { label: "Confidence", value: final.confidence }
-    ];
-    items.forEach(item => {
-      const span = document.createElement("span");
-      span.className = "level-chip" + (item.highlight ? " highlight" : "");
-      span.innerHTML = `${item.label}: <strong>${item.value}</strong>`;
-      chips.appendChild(span);
-    });
-
-    const note = document.getElementById("level-note");
-    if (level.improved && level.llm_rewrite_applied) {
-      note.textContent = first.below_target
-        ? "The first draft was below the target. An AI rewrite brought it closer to the selected reading level. The PDF uses the final version."
-        : "The first draft was above the target. An AI rewrite brought it closer to the selected reading level. The PDF uses the final version.";
-    } else if (level.improved) {
-      note.textContent = "Deterministic edits lowered the first draft toward the selected reading level. The PDF uses the final version.";
-    } else if (final.in_band) {
-      note.textContent = "The first draft already measured in the target band, so it was left unchanged.";
-    } else {
-      note.textContent = "The passage is still outside the selected reading level.";
-    }
-
-    const draftBlock = document.getElementById("level-draft-block");
-    if (level.improved && first.story) {
-      document.getElementById("level-draft-text").textContent = first.story;
-      draftBlock.style.display = "block";
-    } else {
-      draftBlock.style.display = "none";
-    }
-
-    card.style.display = "flex";
   }
 
   function populateReviewPanel(content) {
@@ -881,7 +1006,6 @@
     document.getElementById("pdf-section").style.display = "none";
     document.getElementById("preview-empty").style.display = "flex";
     document.getElementById("review-empty").style.display = "flex";
-    document.getElementById("level-compare").style.display = "none";
     document.getElementById("review-ready").style.display = "none";
     document.getElementById("review-form").style.display = "none";
     document.getElementById("review-intro").style.display = "none";

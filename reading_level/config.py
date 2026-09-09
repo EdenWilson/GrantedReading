@@ -386,3 +386,37 @@ ENABLE_NATURALNESS_CHECK = False
 
 # Share of eligible passages sampled when the check is enabled.
 NATURALNESS_SAMPLE_RATE = 0.05
+
+# --------------------------------------------------------------------------
+# Worksheet modulator (passage + questions)
+# --------------------------------------------------------------------------
+
+# Ceiling on source-material size. Over this, reject — do not truncate and
+# do not retrieve. Teachers should paste the chapter this worksheet covers.
+# UNCALIBRATED -- 45,000 is a first-pass cap, not fitted to real packets.
+SOURCE_MATERIAL_MAX_TOKENS = 45000
+
+# UNCALIBRATED -- chars-per-token stand-in. This is not a model tokenizer.
+SOURCE_CHARS_PER_TOKEN = 4
+
+# How far the achieved DOK mix may drift from the target mix, as a share of
+# the question count (0.25 = one question in four). UNCALIBRATED.
+DOK_MIX_TOLERANCE = 0.25
+
+# Default DOK mix by numeric grade, percents summing to 100.
+# UNCALIBRATED -- placeholder pending real assessment blueprints.
+DOK_MIX_BY_GRADE = {
+    0: {1: 90, 2: 10, 3: 0, 4: 0},
+    1: {1: 80, 2: 20, 3: 0, 4: 0},
+    2: {1: 70, 2: 25, 3: 5, 4: 0},
+    3: {1: 55, 2: 35, 3: 10, 4: 0},
+    4: {1: 45, 2: 40, 3: 15, 4: 0},
+    5: {1: 35, 2: 40, 3: 20, 4: 5},
+    6: {1: 30, 2: 40, 3: 25, 4: 5},
+    7: {1: 25, 2: 40, 3: 30, 4: 5},
+    8: {1: 20, 2: 40, 3: 30, 4: 10},
+    9: {1: 15, 2: 35, 3: 35, 4: 15},
+    10: {1: 15, 2: 30, 3: 40, 4: 15},
+    11: {1: 10, 2: 30, 3: 40, 4: 20},
+    12: {1: 10, 2: 25, 3: 40, 4: 25},
+}

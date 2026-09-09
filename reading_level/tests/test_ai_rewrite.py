@@ -6,6 +6,7 @@ these tests is that the deterministic gates decide, and the model never does.
 
 import json
 import logging
+from types import SimpleNamespace
 
 import pytest
 from drift_cases import (
@@ -20,8 +21,10 @@ import ai
 import ai_rewrite
 from reading_level import (
     ReadingLevelError,
+    bands as rl_bands,
     config as rl_config,
     correct_text,
+    score_text,
 )
 
 
@@ -248,7 +251,7 @@ def test_the_prompt_defines_easier_words_and_assigns_the_listed_edits(
     assert "Do not regenerate the passage from scratch" in prompt
     assert "only two numbers that move it" in prompt
     assert "Going below the floor is as wrong as staying above the ceiling" in prompt
-    assert "Aim near grade" in prompt
+    assert "Aim near the middle" in prompt
     assert "average" in prompt.lower()
 
 
@@ -642,6 +645,34 @@ def test_corrector_path_escalates_text_that_is_too_easy(
     assert outcome.llm_rewrite_applied is True
 
 
+def test_rewrite_still_above_band_gets_another_repair_pass(monkeypatch):
+    band = rl_bands.target_band(3)
+    outcome = ai_rewrite.RewriteOutcome(
+        text="still too hard",
+        correction=SimpleNamespace(target_band=band, edits=[]),
+        final_score=SimpleNamespace(estimated_grade=3.66),
+        gate_passed=False,
+        failure_reason="rewrite_rejected_out_of_band",
+        llm_rewrite_applied=True,
+    )
+    called = {}
+
+    def fake_correct(text, target, **kwargs):
+        called["text"] = text
+        return SimpleNamespace(
+            text="nicked into band",
+            final_score=SimpleNamespace(estimated_grade=3.2),
+            gate_passed=True,
+        )
+
+    monkeypatch.setattr(ai, "correct_text", fake_correct)
+    result = ai._polish_rewrite_with_repair(outcome, 3, [])
+    assert called["text"] == "still too hard"
+    assert result.gate_passed
+    assert result.text == "nicked into band"
+    assert result.failure_reason is None
+
+
 def test_corrector_path_is_deterministic_unless_asked(mock_generate, fixture_text):
     calls = mock_generate(_rewrite_json(LEGIT_MILD_REWORD))
 
@@ -649,6 +680,167 @@ def test_corrector_path_is_deterministic_unless_asked(mock_generate, fixture_tex
 
     assert calls == []
     assert outcome.llm_rewrite_applied is False
+
+
+def test_focus_vocabulary_is_parsed_and_asked_for_several_times():
+    assert ai.parse_focus_vocabulary("  resilient, Resilient, photosynthesis ") == [
+        "resilient",
+        "photosynthesis",
+    ]
+    assert ai.parse_focus_vocabulary("") == []
+
+    prompt = ai.build_worksheet_prompt(
+        "4", "3", "soccer", focus_vocabulary=["resilient"]
+    )
+    assert '"resilient"' in prompt
+    assert "3 to 5 times" in prompt
+    assert "easier synonym" in prompt
+
+
+def test_focus_phonics_is_parsed_and_asked_for():
+    assert ai.parse_focus_phonics("  TION — action, station ") == "tion"
+    assert ai.parse_focus_phonics("ing") == "ing"
+    assert ai.parse_focus_phonics("") == ""
+    assert ai.parse_focus_phonics("a") == ""
+    assert ai.words_matching_phonics(
+        "The station mention of the action was a surprise.", "tion"
+    ) == ["station", "mention", "action"]
+
+    prompt = ai.build_worksheet_prompt("4", "3", "soccer", focus_phonics="tion")
+    assert '"tion"' in prompt
+    assert "3 to 5 different words" in prompt
+    assert "letter pattern" in prompt
+
+
+def test_dok_prompt_differs_by_level():
+    """The DOK parameter must change the question prompt, not just a label."""
+    story = "Leo asked Maya to wait. He took a deep breath, then walked over."
+    prompts = {
+        level: ai.build_questions_prompt(story, "The Walk", level)
+        for level in (1, 2, 3, 4)
+    }
+    assert "Recall & Reproduction" in prompts[1]
+    assert "explicitly stated in the text" in prompts[1]
+    assert "Skill & Concept" in prompts[2]
+    assert "connecting two or more pieces" in prompts[2]
+    assert "Strategic Thinking" in prompts[3]
+    assert "support their answer with evidence" in prompts[3]
+    assert "Extended Thinking" in prompts[4]
+    assert "connects the story to the student's own experience" in prompts[4]
+    assert len({prompts[1], prompts[2], prompts[3], prompts[4]}) == 4
+    assert all("Leo asked Maya to wait" in prompts[level] for level in prompts)
+    assert "Who / What / When / Where / Why template" in prompts[1]
+    story_prompt = ai.build_worksheet_prompt("4", "3", "soccer")
+    assert "Who / What / When / Where / Why" in story_prompt
+    assert "Who ...?" not in story_prompt
+    assert ai.parse_dok_level(None) == 1
+    assert ai.parse_dok_level("DOK 3") == 3
+
+
+def test_dok_level_does_not_change_the_story_or_the_leveler(monkeypatch):
+    """Changing question demand cannot change passage generation or repair."""
+    story_prompts = []
+    leveler_stories = []
+    story = "Sam ran to the park. The sun was hot."
+
+    def fake_generate(prompt):
+        if "DOK level" in prompt:
+            level = "1" if "Recall & Reproduction" in prompt else "3"
+            return json.dumps({
+                "questions": {f"q{i}": f"DOK {level} question {i}?" for i in range(1, 6)}
+            })
+        story_prompts.append(prompt)
+        return _worksheet_json(story)
+
+    def fake_correct(text, target, **kwargs):
+        leveler_stories.append(text)
+        score = score_text(text)
+        return SimpleNamespace(
+            text=text,
+            target_band=rl_bands.target_band(target),
+            final_score=score,
+            gate_passed=True,
+            llm_rewrite_applied=False,
+            failure_reason=None,
+        )
+
+    monkeypatch.setattr(ai, "generate_text", fake_generate)
+    monkeypatch.setattr(ai, "correct_with_rewrite", fake_correct)
+    monkeypatch.setattr(ai, "generate_image", lambda prompt: "img")
+    monkeypatch.setattr(ai.file, "generate_worksheet_pdf", lambda payload: b"%PDF")
+
+    first, *_ = ai.generate_full_worksheet("4", "3", "soccer", dok_level=1)
+    second, *_ = ai.generate_full_worksheet("4", "3", "soccer", dok_level=3)
+
+    assert len(story_prompts) == 2
+    assert story_prompts[0] == story_prompts[1]
+    assert "DOK" not in story_prompts[0]
+    assert leveler_stories == [story, story]
+    assert first["story"] == second["story"] == story
+    assert first["questions"]["q1"] != second["questions"]["q1"]
+    assert "DOK 1" in first["questions"]["q1"]
+    assert "DOK 3" in second["questions"]["q1"]
+
+
+def test_focus_phonics_protects_matching_words_from_the_leveler(monkeypatch):
+    captured = {}
+
+    def fake_correct(text, target, **kwargs):
+        captured["protected_terms"] = kwargs.get("protected_terms")
+        score = score_text(text)
+        return SimpleNamespace(
+            text=text,
+            target_band=rl_bands.target_band(target),
+            final_score=score,
+            gate_passed=True,
+            llm_rewrite_applied=False,
+            failure_reason=None,
+        )
+
+    monkeypatch.setattr(ai, "correct_with_rewrite", fake_correct)
+    monkeypatch.setattr(ai, "generate_text", lambda prompt: _worksheet_json(
+        "The station mention of the action was a surprise."
+    ))
+    monkeypatch.setattr(ai, "generate_image", lambda prompt: "img")
+    monkeypatch.setattr(ai.file, "generate_worksheet_pdf", lambda payload: b"%PDF")
+
+    ai.generate_full_worksheet(
+        "6", "4", "soccer", focus_vocabulary="resilient", focus_phonics="tion"
+    )
+
+    assert captured["protected_terms"] == [
+        "resilient",
+        "station",
+        "mention",
+        "action",
+    ]
+
+
+def test_focus_vocabulary_is_protected_from_the_leveler(monkeypatch, fixture_text):
+    captured = {}
+
+    def fake_correct(text, target, **kwargs):
+        captured["protected_terms"] = kwargs.get("protected_terms")
+        score = score_text(text)
+        return SimpleNamespace(
+            text=text,
+            target_band=rl_bands.target_band(target),
+            final_score=score,
+            gate_passed=True,
+            llm_rewrite_applied=False,
+            failure_reason=None,
+        )
+
+    monkeypatch.setattr(ai, "correct_with_rewrite", fake_correct)
+    monkeypatch.setattr(ai, "generate_text", lambda prompt: _worksheet_json(
+        "The resilient girl stayed resilient when the game got hard."
+    ))
+    monkeypatch.setattr(ai, "generate_image", lambda prompt: "img")
+    monkeypatch.setattr(ai.file, "generate_worksheet_pdf", lambda payload: b"%PDF")
+
+    ai.generate_full_worksheet("6", "4", "soccer", focus_vocabulary="resilient")
+
+    assert captured["protected_terms"] == ["resilient"]
 
 
 def test_worksheet_generation_keeps_the_first_draft_and_levels_the_story(
@@ -795,3 +987,14 @@ def test_naturalness_respects_the_sample_rate(monkeypatch):
         )
         is None
     )
+
+
+def test_image_prompt_ages_characters_to_classroom_grade():
+    ninth = ai.create_image_prompt("The Game", "Jamal ran down the field.", grade="9")
+    assert "9th grade" in ninth
+    assert "14-15 year olds" in ninth
+    assert "children's" not in ninth.lower()
+
+    kinder = ai.create_image_prompt("The Park", "Sam played tag.", grade="K")
+    assert "kindergarten" in kinder
+    assert "5-6 year olds" in kinder
